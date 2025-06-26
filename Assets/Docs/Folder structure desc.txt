@@ -1,0 +1,56 @@
+MMO Projesi için Unity Klasör Yapısı ve Açıklamaları
+
+### Ana Klasörler
+
+#### 📁 _Project/
+- Projenin ana klasörü
+- Alt çizgi (_) ile başlaması, Unity Project penceresinde en üstte görünmesini sağlar
+- Kendi varlıklarınızı üçüncü parti içeriklerden ayırmanıza yardımcı olur
+
+#### 📁 _ThirdParty/
+- Asset Store ve diğer kaynaklardan alınan paketler için
+- Paket yönetimini ve güncellemeleri kolaylaştırır
+
+### Kod ve Veri Klasörleri
+
+#### 📁 Scripts/Network/
+- MMO'nun temel bileşenleri
+- İstemci (Client) ve sunucu (Server) kodları
+- Shared klasöründe ortak kullanılan veri yapıları
+
+#### 📁 ScriptableObjects/
+- MMO öğeleri için veri tanımlamaları
+  - Eşyalar
+  - Yetenekler
+  - Görevler
+- İki alt klasör:
+  - `Scripts/ScriptableObjects/`: C# script tanımlamaları
+  - `_Project/ScriptableObjects/`: .asset dosyaları
+
+#### 📁 Data/
+- Oyun dengesi verileri
+- Dil dosyaları
+- JSON/CSV formatındaki veriler
+
+### Sahneler ve Özel Klasörler
+
+#### 📁 Scenes/
+- **_Master**: Temel sistem sahnesi
+- **Test**: Geliştirici test sahneleri
+
+#### 📁 Editor/
+- Unity Editor özel araçları
+- Build'e dahil edilmez
+
+#### 📁 Resources/
+- Çalışma zamanında yüklenebilen varlıklar
+- Dikkatli kullanılmalı
+- Addressables tercih edilmeli
+
+#### 📁 StreamingAssets/
+- Build sonrası değiştirilebilir dosyalar
+- Konfigürasyon dosyaları
+- İlk yüklenecek varlık paketleri
+
+### Önemli Not
+Bu yapı, MMO projelerinin organizasyonu için optimize edilmiş bir temel sağlar ve projenin ölçeklenebilirliğini destekler.
