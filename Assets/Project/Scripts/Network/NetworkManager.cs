@@ -3,10 +3,11 @@ using System.Collections.Generic;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
+using BarbarosKs.core.DTOs;
 using UnityEngine;
-using Project.Scripts.Network.Models;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using UnityEngine.SceneManagement;
 
 namespace Project.Scripts.Network
 {
@@ -60,20 +61,62 @@ namespace Project.Scripts.Network
                 Destroy(gameObject);
             }
         }
+        
+        private void OnEnable()
+        {
+            // Sahne yüklendiğinde bu metot çalışır.
+            SceneManager.sceneLoaded += OnSceneLoaded;
+        }
+        
+        private void OnDisable()
+        {
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+        }
 
         private void Start()
         {
-            ConnectToServer();
+          //  ConnectToServer();
         }
 
         private void Update()
         {
             ProcessMessageQueue();
         }
+        
+        public void ConnectToServer(string playerId, string playerName)
+        {
+            if (IsConnected) return;
+
+            // Bu bilgileri daha sonra sunucuya göndermek için saklayabiliriz.
+            this.LocalPlayerId = playerId; 
+            this.playerName = playerName; // Sınıfa private string playerName; ekleyin.
+
+            try
+            {
+                _clientReceiveThread = new Thread(ReceiveMessages) { IsBackground = true };
+                _tcpClient = new TcpClient();
+                _tcpClient.BeginConnect(serverIP, serverPort, OnConnectCallback, null);
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"Bağlantı hatası: {e.Message}");
+            }
+        }
 
         private void OnApplicationQuit()
         {
             DisconnectFromServer();
+        }
+        
+        void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+        {
+            // Eğer yüklenen sahne oyun sahnesiyse ve bir kullanıcı giriş yapmışsa, sunucuya bağlan.
+            if (scene.name != "GameScene" || GameManager.Instance.CurrentUser == null) return;
+            Debug.Log("Oyun sahnesi yüklendi. NetworkManager başlatılıyor...");
+        
+            var pId = GameManager.Instance.CurrentPlayer.Id.ToString();
+            var pName = GameManager.Instance.CurrentPlayer.Username;
+            ConnectToServer(pId, pName);
         }
 
         #region Bağlantı ve Mesajlaşma
@@ -237,6 +280,17 @@ namespace Project.Scripts.Network
                                 JArray playersArray = (JArray)worldStateData["Players"];
                                 // Şimdi bu diziyi List<Player>'a çevir
                                 List<Player> players = playersArray.ToObject<List<Player>>();
+                                if (LocalPlayerId == null)
+                                {
+                                    Player self = players.Find(p => p.Name == _playerNameAttempt);
+                                    if (self != null)
+                                    {
+                                        LocalPlayerId = self.Id;
+                                        Debug.Log($"Yerel oyuncu ID'miz WorldState üzerinden atandı: {LocalPlayerId}");
+                                    }
+                                }
+                                // ---------------------------
+
                                 OnWorldStateReceived?.Invoke(players);
                                 break;
                             case MessageType.PlayerJoined:

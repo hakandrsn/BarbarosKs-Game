@@ -5,7 +5,6 @@ using UnityEngine.UI;
 using TMPro;
 using BarbarosKs.Player;
 using Project.Scripts.Network;
-using Project.Scripts.Network.Models; // Yeni ve standart modellerimizi kullanıyoruz
 
 namespace BarbarosKs.UI
 {
@@ -36,18 +35,13 @@ namespace BarbarosKs.UI
 
         private void Awake()
         {
-            _mainCamera = Camera.main;
 
-            // Bu UI, sadece yerel oyuncunun bilgilerini takip etmeli.
-            // Sahnedeki "Player" tag'ine sahip nesneyi bulup onun bileşenlerini alıyoruz.
-            GameObject localPlayerObject = GameObject.FindGameObjectWithTag("Player");
-            if (localPlayerObject != null)
+            PlayerController.OnLocalPlayerSpawned += InitializeUIForPlayer;
+
+            // Ağ yöneticisinden gelen genel oyun olaylarını dinlemeye devam et
+            if (NetworkManager.Instance != null)
             {
-                _localPlayerHealth = localPlayerObject.GetComponent<PlayerHealth>();
-            }
-            else
-            {
-                Debug.LogWarning("Sahnede 'Player' tag'ine sahip yerel oyuncu bulunamadı. UI düzgün çalışmayabilir.");
+                NetworkManager.Instance.OnPlayerJoined += HandlePlayerJoined;
             }
         }
 
@@ -67,10 +61,27 @@ namespace BarbarosKs.UI
                 // NetworkManager.Instance.OnPlayerLeft += HandlePlayerLeft; // Bu olay eklendiğinde aktif edilecek
             }
         }
+        
+        // UI'ı oyuncu verileriyle başlatan yeni metot
+        private void InitializeUIForPlayer(PlayerController localPlayer)
+        {
+            Debug.Log("GameUI, yerel oyuncuya başarıyla bağlandı.");
+            _localPlayerHealth = localPlayer.GetComponent<PlayerHealth>();
+
+            if (_localPlayerHealth != null)
+            {
+                UpdateHealthUI(_localPlayerHealth.GetCurrentHealth(), _localPlayerHealth.GetMaxHealth());
+                _localPlayerHealth.OnHealthChanged.AddListener(UpdateHealthUI);
+            }
+
+            // Silah vb. diğer UI bileşenleri de burada bağlanabilir.
+        }
+
 
         private void OnDestroy()
         {
             // Bellek sızıntılarını önlemek için tüm olay aboneliklerini iptal et
+            PlayerController.OnLocalPlayerSpawned -= InitializeUIForPlayer;
             if (_localPlayerHealth != null)
             {
                 _localPlayerHealth.OnHealthChanged.RemoveListener(UpdateHealthUI);
@@ -78,7 +89,6 @@ namespace BarbarosKs.UI
             if (NetworkManager.Instance != null)
             {
                 NetworkManager.Instance.OnPlayerJoined -= HandlePlayerJoined;
-                // NetworkManager.Instance.OnPlayerLeft -= HandlePlayerLeft;
             }
         }
         
@@ -188,7 +198,7 @@ namespace BarbarosKs.UI
             notificationText.text = message;
             notificationPanel.SetActive(true);
             StopAllCoroutines();
-            float actualDuration = duration > 0 ? duration : notificationDuration;
+            var actualDuration = duration > 0 ? duration : notificationDuration;
             StartCoroutine(HideNotificationAfterDelay(actualDuration));
         }
 
@@ -205,7 +215,7 @@ namespace BarbarosKs.UI
         /// <summary>
         /// NetworkManager'dan yeni bir oyuncunun katıldığı bilgisi geldiğinde çalışır.
         /// </summary>
-        private void HandlePlayerJoined(Project.Scripts.Network.Models.Player joinedPlayer)
+        private void HandlePlayerJoined(core.DTOs.Player joinedPlayer)
         {
             // Gelen veri artık standart 'Player' modelimizden geliyor.
             ShowNotification($"{joinedPlayer.Name} oyuna katıldı!");

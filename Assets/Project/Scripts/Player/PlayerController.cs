@@ -1,42 +1,50 @@
 ﻿using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.AI;
 using Project.Scripts.Interfaces;
 using Project.Scripts.Network;
-using Project.Scripts.Network.Models;
-using System.Collections; // Coroutine için eklendi
+using System.Collections;
+using BarbarosKs.core.DTOs;
 
 namespace BarbarosKs.Player
 {
-    [RequireComponent(typeof(Rigidbody), typeof(PlayerInput))]
-    public class PlayerController : MonoBehaviour, IDamageable
+    [RequireComponent(typeof(Rigidbody), typeof(PlayerInput), typeof(NavMeshAgent))]
+    public class PlayerController : MonoBehaviour, IDamageable, InputSystem_Actions.IPlayerActions
     {
         [Header("Hareket Ayarları")]
-        [SerializeField] private float moveSpeed = 10f;
-        [SerializeField] private float rotationSpeed = 540f; // Daha hızlı dönüş için artırıldı
+        [SerializeField] private float moveSpeed = 12f;
+        [SerializeField] [Tooltip("Geminin 180 derecelik bir dönüşü tamamlaması için gereken maksimum süre (saniye).")]
+        private float maxRotationTime = 1.0f; 
+        [SerializeField] [Tooltip("Geminin 180 derecelik bir dönüşü tamamlaması için gereken minimum süre (saniye).")]
+        private float minRotationTime = 0.3f;
+        [SerializeField] [Tooltip("Bu açıdan daha büyük dönüşlerde geminin yavaşlaması gereken açı.")]
+        private float sharpTurnAngleThreshold = 120f;
+
+        public static event System.Action<PlayerController> OnLocalPlayerSpawned;
 
         [Header("Ağ Ayarları")]
         [SerializeField] private float networkSyncInterval = 0.1f;
 
         [Header("Savaş Ayarları")]
         [SerializeField] private float attackCooldown = 1.0f;
-        [SerializeField] private Transform attackPoint; // Güllelerin çıkış noktası
-        [SerializeField] private float attackRange = 20f; // Gülle menzili
+        [SerializeField] private float attackRange = 25f;
 
-        // Özel değişkenler
+        // Bileşen Referansları
         private Rigidbody _rb;
         private Animator _animator;
-        private PlayerInput _playerInput;
         private PlayerHealth _health;
+        private NavMeshAgent _navMeshAgent;
+        private Camera _mainCamera;
         private BarbarosKs.UI.GameUI _gameUI;
+        private InputSystem_Actions _inputActions;
 
+        // Durum Değişkenleri
         private bool _isLocalPlayer = false;
         private bool _canAttack = true;
         private string _currentTargetId;
-        private Vector3 _movementDestination;
-        private bool _isMovingToDestination = false;
         private float _networkSyncTimer;
 
-        // Animator parametreleri (Cache'lenmiş)
+        // Animator Parametreleri (Cache'lenmiş)
         private readonly int IsMovingHash = Animator.StringToHash("IsMoving");
         private readonly int AttackTriggerHash = Animator.StringToHash("Attack");
 
@@ -44,30 +52,49 @@ namespace BarbarosKs.Player
         {
             _rb = GetComponent<Rigidbody>();
             _animator = GetComponent<Animator>();
-            _playerInput = GetComponent<PlayerInput>();
             _health = GetComponent<PlayerHealth>();
-            _gameUI = FindObjectOfType<BarbarosKs.UI.GameUI>(); // UI referansı
+            _navMeshAgent = GetComponent<NavMeshAgent>();
+            _mainCamera = Camera.main;
+            _gameUI = FindObjectOfType<BarbarosKs.UI.GameUI>();
+            
+            _inputActions = new InputSystem_Actions();
+        }
+        
+        private void OnEnable()
+        {
+            // Bu script aktif olduğunda input eylemlerini dinlemeye başla
+            _inputActions.Player.Enable();
         }
 
-        /// <summary>
-        /// Karakterin yerel mi yoksa uzak bir oyuncuya mı ait olduğunu belirler.
-        /// Bu metot, NetworkObjectSpawner tarafından çağrılır.
-        /// </summary>
+        private void OnDisable()
+        {
+            // Bu script devre dışı kaldığında dinlemeyi bırak
+            _inputActions.Player.Disable();
+        }
+
         public void Initialize(bool isLocal, string networkId)
         {
             _isLocalPlayer = isLocal;
             
-            // Eğer bu karakter bize ait değilse (uzak oyuncu), girdi ve fizik motorunu devre dışı bırak.
-            // Çünkü onun tüm hareketleri sunucudan gelen verilerle yönetilecek.
-            if (!_isLocalPlayer)
+            if (_isLocalPlayer)
             {
-                _playerInput.enabled = false;
-                if (_rb != null) _rb.isKinematic = true;
+                gameObject.tag = "Player";
+                _navMeshAgent.speed = moveSpeed;
+                _navMeshAgent.angularSpeed = 0;
+                _navMeshAgent.acceleration = 999;
+                _navMeshAgent.updateRotation = false;
+
+                // Bu script'i, input olaylarını dinleyecek şekilde ayarlıyoruz.
+                GetComponent<PlayerInput>().enabled = false; 
+                _inputActions.Player.SetCallbacks(this);
+                // YENİ SATIR: Yerel oyuncunun oluşturulduğunu tüm sisteme bildiriyoruz.
+                OnLocalPlayerSpawned?.Invoke(this);
             }
-            else // Eğer yerel oyuncu ise
+            else
             {
-                gameObject.tag = "Player"; // Yerel oyuncuyu etiketle
-                _movementDestination = transform.position; // Başlangıç hedefi mevcut pozisyon
+                _navMeshAgent.enabled = false;
+                GetComponent<PlayerInput>().enabled = false; 
+                if (_rb != null) _rb.isKinematic = true;
             }
         }
 
@@ -75,101 +102,50 @@ namespace BarbarosKs.Player
         {
             if (!_isLocalPlayer) return;
 
-            HandleMouseInput();
-            HandleKeyboardInput();
-            HandleMovement();
+            HandleRotation();
+            UpdateAnimator();
             HandleNetworkSync();
         }
 
-        #region Girdi (Input) ve Oyun Mantığı
+        #region Input (Girdi) Arayüz Metotları
 
-        /// <summary>
-        /// Fare tıklamalarını yönetir (Hareket & Hedef Seçimi).
-        /// </summary>
-        private void HandleMouseInput()
+        // PlayerController.cs içindeki OnSetDestination metodu
+        public void OnSetDestination(InputAction.CallbackContext context)
         {
-            if (Input.GetMouseButtonDown(0)) // Sol tık
-            {
-                Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-                if (Physics.Raycast(ray, out RaycastHit hit))
-                {
-                    // Düşman etiketli bir nesneye mi tıklandı?
-                    // NOT: Düşmanın Network kimliğini tutan bir component olmalı. (Örn: NetworkIdentity.cs)
-                    if (hit.collider.CompareTag("Enemy"))
-                    {
-                        // TODO: Düşmanın Network ID'sini alıp hedef olarak belirle
-                        // var enemyIdentity = hit.collider.GetComponent<NetworkIdentity>();
-                        // if(enemyIdentity != null) SetTarget(enemyIdentity.Id);
+            if (!_isLocalPlayer || !context.performed) return;
 
-                        Debug.Log(hit.collider.name + " hedef alındı.");
-                    }
-                    else // Boş bir alana tıklandı
-                    {
-                        _currentTargetId = null; // Hedefi bırak
-                        _movementDestination = hit.point;
-                        _isMovingToDestination = true;
-                        Debug.Log("Yeni hareket hedefi: " + _movementDestination);
-                        
-                        // NOT: Sunucu otoriter bir yapıda, aslında burda sunucuya bir "MoveRequest" gönderilir.
-                        // Şimdilik daha akıcı bir his için istemci tarafında hareketi başlatıyoruz.
-                    }
+            Debug.Log("OnSetDestination metodu fare tıklamasıyla çağrıldı!"); // 1. KONTROL NOKTASI
+
+            Ray ray = _mainCamera.ScreenPointToRay(Mouse.current.position.ReadValue());
+    
+            // Işını sahnede kırmızı bir çizgi olarak 2 saniyeliğine çizelim.
+            Debug.DrawRay(ray.origin, ray.direction * 100f, Color.red, 2.0f);
+
+            if (Physics.Raycast(ray, out RaycastHit hit))
+            {
+                Debug.Log("Raycast bir nesneye çarptı: " + hit.collider.name); // 2. KONTROL NOKTASI
+
+                // ŞİMDİLİK SORUNU BASİTLEŞTİRELİM: "Water" alanını kontrol etmeden, herhangi bir NavMesh alanını kabul edelim.
+                if (NavMesh.SamplePosition(hit.point, out NavMeshHit navHit, 1.0f, NavMesh.AllAreas))
+                {
+                    Debug.Log("Geçerli NavMesh pozisyonu bulundu: " + navHit.position); // 3. KONTROL NOKTASI
+                    _navMeshAgent.SetDestination(navHit.position);
+                }
+                else
+                {
+                    Debug.LogWarning("Tıklanan nokta NavMesh üzerinde bulunamadı!"); // HATA NOKTASI
                 }
             }
-        }
-
-        /// <summary>
-        /// Klavye girdilerini yönetir (Saldırı).
-        /// </summary>
-        private void HandleKeyboardInput()
-        {
-            // GDD'ye göre Boşluk tuşu ile saldırı
-            if (Input.GetKeyDown(KeyCode.Space))
+            else
             {
-                OnAttack();
-            }
-        }
-        
-        /// <summary>
-        /// Belirlenen hedefe doğru gemiyi hareket ettirir ve döndürür.
-        /// </summary>
-        private void HandleMovement()
-        {
-            if (!_isMovingToDestination)
-            {
-                _animator.SetBool(IsMovingHash, false);
-                return;
-            }
-
-            Vector3 direction = (_movementDestination - transform.position);
-            direction.y = 0; // Y ekseninde hareket olmasın
-
-            if (direction.magnitude > 0.5f) // Hedefe yeterince yakın değilsek
-            {
-                _animator.SetBool(IsMovingHash, true);
-                
-                // Gemiyi hedefe doğru döndür
-                Quaternion targetRotation = Quaternion.LookRotation(direction);
-                transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
-
-                // Gemiyi ileri doğru hareket ettir
-                _rb.MovePosition(transform.position + transform.forward * moveSpeed * Time.deltaTime);
-            }
-            else // Hedefe ulaştık
-            {
-                _isMovingToDestination = false;
-                _animator.SetBool(IsMovingHash, false);
+                Debug.LogWarning("Raycast hiçbir şeye çarpmadı!"); // HATA NOKTASI
             }
         }
 
-        #endregion
-
-        #region Savaş ve Hasar
-
-        public void OnAttack()
+        public void OnFire(InputAction.CallbackContext context)
         {
-            if (!_isLocalPlayer || !_canAttack) return;
+            if (!_isLocalPlayer || !_canAttack || !context.performed) return;
             
-            // GDD Kuralı: Saldırı için bir hedef seçilmiş olmalı.
             if (string.IsNullOrEmpty(_currentTargetId))
             {
                 _gameUI?.ShowNotification("Saldırmak için bir hedef seçmelisin!");
@@ -180,29 +156,70 @@ namespace BarbarosKs.Player
             if (targetObject == null)
             {
                 _gameUI?.ShowNotification("Hedef bulunamadı!");
-                _currentTargetId = null; // Geçersiz hedefi temizle
+                _currentTargetId = null;
                 return;
             }
             
-            // GDD Kuralı: Menzil kontrolü
             float distance = Vector3.Distance(transform.position, targetObject.transform.position);
             if (distance > attackRange)
             {
                 _gameUI?.ShowNotification("Hedef menzil dışında!");
-                
-                // GDD Kuralı: Menzil dışındaysa hedefe doğru otomatik hareket et
-                _movementDestination = targetObject.transform.position;
-                _isMovingToDestination = true;
+                _navMeshAgent.SetDestination(targetObject.transform.position);
                 return;
             }
             
-            // Tüm kontroller başarılı, saldırı isteğini sunucuya gönder.
             RequestAttack(_currentTargetId);
-            _animator.SetTrigger(AttackTriggerHash); // Animasyonu anında başlat
-            
-            // Cooldown başlat
+            _animator.SetTrigger(AttackTriggerHash);
             StartCoroutine(AttackCooldownRoutine());
         }
+        
+        // Arayüzün gerektirdiği diğer metotlar (şimdilik boş)
+        public void OnMove(InputAction.CallbackContext context) { }
+        public void OnLook(InputAction.CallbackContext context) { }
+        public void OnInteract(InputAction.CallbackContext context) { }
+        public void OnCrouch(InputAction.CallbackContext context) { }
+        public void OnJump(InputAction.CallbackContext context) { }
+        public void OnPrevious(InputAction.CallbackContext context) { }
+        public void OnNext(InputAction.CallbackContext context) { }
+        public void OnSprint(InputAction.CallbackContext context) { }
+
+        #endregion
+
+        #region Hareket ve Animasyon
+
+        private void HandleRotation()
+        {
+            if (_navMeshAgent.velocity.sqrMagnitude < 0.1f * 0.1f) return;
+
+            Vector3 direction = _navMeshAgent.velocity.normalized;
+            Quaternion targetRotation = Quaternion.LookRotation(direction);
+            
+            float angleDifference = Quaternion.Angle(transform.rotation, targetRotation);
+            float rotationProgress = Mathf.Clamp01(angleDifference / 180f);
+            float currentRotationTime = Mathf.Lerp(maxRotationTime, minRotationTime, 1 - rotationProgress);
+            float dynamicRotationSpeed = 180f / Mathf.Max(currentRotationTime, 0.01f);
+
+            if (angleDifference > sharpTurnAngleThreshold)
+            {
+                _navMeshAgent.speed = moveSpeed * 0.5f;
+            }
+            else
+            {
+                _navMeshAgent.speed = moveSpeed;
+            }
+
+            transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRotation, dynamicRotationSpeed * Time.deltaTime);
+        }
+
+        private void UpdateAnimator()
+        {
+            bool isMoving = _navMeshAgent.velocity.magnitude > 0.2f;
+            _animator.SetBool(IsMovingHash, isMoving);
+        }
+
+        #endregion
+
+        #region Savaş ve Hasar
 
         private IEnumerator AttackCooldownRoutine()
         {
@@ -211,7 +228,6 @@ namespace BarbarosKs.Player
             _canAttack = true;
         }
 
-        // Bu metot sunucudan gelen "hasar aldın" mesajı üzerine çağrılmalı.
         public void TakeDamage(int damage)
         {
             if (_health != null)
@@ -219,14 +235,11 @@ namespace BarbarosKs.Player
                 _health.TakeDamage(damage);
             }
         }
-        
+
         #endregion
 
         #region Network Gönderim İşlemleri
 
-        /// <summary>
-        /// Pozisyonu periyodik olarak sunucuya gönderir.
-        /// </summary>
         private void HandleNetworkSync()
         {
             _networkSyncTimer += Time.deltaTime;
@@ -241,18 +254,11 @@ namespace BarbarosKs.Player
         {
             if (!NetworkManager.Instance.IsConnected) return;
 
-            var moveData = new PlayerMoveData { NewPosition = transform.position };
-            var message = new GameMessage
-            {
-                Type = MessageType.PlayerMove,
-                Data = moveData
-            };
+            var moveData = new PlayerMoveData() { NewPosition = transform.position.ToNumeric() };
+            var message = new GameMessage { Type = MessageType.PlayerMove, Data = moveData };
             NetworkManager.Instance.SendMessage(message);
-        }
+        } 
 
-        /// <summary>
-        /// Sunucuya saldırı isteği gönderir.
-        /// </summary>
         private void RequestAttack(string targetId)
         {
             if (!NetworkManager.Instance.IsConnected) return;
@@ -261,17 +267,10 @@ namespace BarbarosKs.Player
             {
                 ActionType = "attack",
                 TargetId = targetId,
-                Position = transform.position,
-                // TODO: Oyuncunun seçili olan gülle tipi de buraya eklenebilir.
-                // Parameters = new Dictionary<string, object> { { "cannonball_type", "default" } }
+                Position = transform.position.ToNumeric(),
             };
             
-            var message = new GameMessage
-            {
-                Type = MessageType.PlayerAction,
-                Data = actionData
-            };
-            
+            var message = new GameMessage { Type = MessageType.PlayerAction, Data = actionData };
             NetworkManager.Instance.SendMessage(message);
             Debug.Log(targetId + " ID'li hedefe saldırı isteği gönderildi.");
         }

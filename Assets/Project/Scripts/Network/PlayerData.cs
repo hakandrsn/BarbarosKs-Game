@@ -1,7 +1,5 @@
 ﻿using System;
 using UnityEngine;
-using System;
-using UnityEngine;
 
 namespace Project.Scripts.Network
 {

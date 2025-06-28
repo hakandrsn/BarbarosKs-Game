@@ -1,8 +1,5 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
-using System;
-using System.Collections.Generic;
-using UnityEngine;
 
 namespace Project.Scripts.Network
 {
@@ -13,7 +10,7 @@ namespace Project.Scripts.Network
     public class GameState
     {
         // Oyundaki oyuncular listesi
-        public List<PlayerData> players = new List<PlayerData>();
+        public List<PlayerData> players;
 
         // Sunucu saati (senkronizasyon için)
         public long serverTimeMs;

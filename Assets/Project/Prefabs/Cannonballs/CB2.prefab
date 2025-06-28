@@ -118,11 +118,10 @@ MonoBehaviour:
   m_GameObject: {fileID: 5841565649136859007}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9b91ecbcc199f4492b9a91e820070131, type: 3}
+  m_Script: {fileID: 11500000, guid: 554ce3cfb7da72a4d91b8315b18b0905, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  sceneId: 0
-  _assetId: 4249543884
-  serverOnly: 0
-  visibility: 0
-  hasSpawned: 0
+  lifetime: 5
+  damage: 10
+  hitEffectPrefab: {fileID: 0}
+  hitSound: {fileID: 0}

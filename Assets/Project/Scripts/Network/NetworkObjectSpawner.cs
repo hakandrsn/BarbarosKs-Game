@@ -1,8 +1,7 @@
 ﻿using System.Collections.Generic;
+using BarbarosKs.core.DTOs;
 using BarbarosKs.Player;
 using UnityEngine;
-using Project.Scripts.Network.Models; // DİKKAT: Yeni ve birleştirilmiş modellerimizi kullanıyoruz.
-using BarbarosKs.Ship; // ShipController'a erişim için
 
 namespace Project.Scripts.Network
 {
@@ -150,29 +149,33 @@ namespace Project.Scripts.Network
         /// <summary>
         /// Gelen oyuncu verisine göre sahnede bir karakter oluşturur veya mevcut olanı günceller.
         /// </summary>
+        // NetworkObjectSpawner.cs içinde
         private void SpawnOrUpdatePlayer(Player playerData)
         {
-            // Eğer bu oyuncu zaten sahnede varsa, pozisyonunu güncelle ve çık.
+            // Bu metot artık çok daha temiz ve güvenilir.
+            // Gelen oyuncu verisinin ID'si, NetworkManager'da sakladığımız yerel ID ile aynı mı?
+            bool isLocal = (playerData.Id == NetworkManager.Instance.LocalPlayerId);
+
+            // Eğer bu ID'ye sahip bir oyuncu zaten sahnede varsa, onu güncelleyip çıkıyoruz.
             if (_spawnedPlayerObjects.TryGetValue(playerData.Id, out GameObject existingPlayerObject))
             {
-                // TODO: Buraya yumuşak geçiş (interpolation) eklenecek.
-                existingPlayerObject.transform.position = playerData.Position;
+                // Uzak oyuncuların pozisyonu burada güncellenecek.
+                if (!isLocal)
+                {
+                    // TODO: Buraya yumuşak geçiş (interpolation) eklenecek.
+                    existingPlayerObject.transform.position = playerData.Position.ToUnity();
+                }
                 return;
             }
 
-            // --- YENİ VE DOĞRU MANTIK ---
-            // Gelen oyuncu verisinin ID'si, bizim NetworkManager'da sakladığımız yerel ID ile aynı mı?
-            bool isLocal = (playerData.Id == NetworkManager.Instance.LocalPlayerId);
+            // --- YENİ OYUNCU OLUŞTURMA ---
     
-            // NOT: Sunucu her zaman dünya durumunda yerel oyuncuyu da gönderir.
-            // Bu yüzden bu kontrol, hangi prefab'ın oluşturulacağını belirler.
-    
-            // TODO: Yerel ve uzak oyuncu için farklı prefab'lar atayabilirsiniz.
+            // TODO: Yerel ve uzak oyuncu için farklı prefab'lar kullanabilirsiniz.
             // GameObject prefabToSpawn = isLocal ? localPlayerPrefab : remotePlayerPrefab;
             GameObject prefabToSpawn = defaultPlayerPrefab; 
 
-            GameObject newPlayerObject = Instantiate(prefabToSpawn, playerData.Position, Quaternion.identity, playersContainer);
-            newPlayerObject.name = $"Player_{playerData.Name} ({ (isLocal ? "Yerel" : "Uzak") })";
+            GameObject newPlayerObject = Instantiate(prefabToSpawn, playerData.Position.ToUnity(), Quaternion.identity, playersContainer);
+            newPlayerObject.name = $"Player_{playerData.Name} ({(isLocal ? "Yerel" : "Uzak")})";
 
             // Controller'a yerel mi uzak mı olduğunu ve network kimliğini bildir.
             var playerController = newPlayerObject.GetComponent<PlayerController>();
@@ -181,17 +184,16 @@ namespace Project.Scripts.Network
                 playerController.Initialize(isLocal, playerData.Id);
             }
 
-            // Health script'ine de bildirelim.
             var playerHealth = newPlayerObject.GetComponent<PlayerHealth>();
             if(playerHealth != null)
             {
-                // playerHealth.Initialize(isLocal); // PlayerHealth'e de bir Initialize metodu ekleyebilirsiniz.
+                // playerHealth.Initialize(isLocal); // Gerekirse PlayerHealth'e de bir Initialize metodu ekleyebilirsiniz.
             }
 
             // Oluşturulan nesneyi takip listemize ekle.
             _spawnedPlayerObjects.Add(playerData.Id, newPlayerObject);
+            Debug.Log(newPlayerObject.name + " başarıyla oluşturuldu ve listeye eklendi.");
         }
-
         public GameObject GetPlayerObjectById(string playerId)
         {
             _spawnedPlayerObjects.TryGetValue(playerId, out GameObject playerObject);
