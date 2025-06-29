@@ -12,10 +12,12 @@ public class RegisterUI : MonoBehaviour
     public TMP_InputField confirmPasswordInput;
     public Button registerButton;
     public TextMeshProUGUI feedbackText;
+    public Button goBackButton;
 
     private void Start()
     {
         registerButton.onClick.AddListener(OnRegisterButtonClicked);
+        goBackButton.onClick.AddListener(GoBack);
     }
 
     private async void OnRegisterButtonClicked()
@@ -25,23 +27,31 @@ public class RegisterUI : MonoBehaviour
 
         // ApiManager'a artık username'i de gönderiyoruz
         var response = await ApiManager.Instance.Register(
-            emailInput.text, 
-            passwordInput.text, 
+            emailInput.text,
+            passwordInput.text,
             confirmPasswordInput.text,
             usernameInput.text);
 
-        if (response != null && response.Success)
+        if (response is { Success: true })
         {
             feedbackText.text = "Kayıt başarılı! Oyuna giriş yapılıyor...";
 
             // Başarılı kayıttan sonra dönen tam veriyi GameManager'a iletiyoruz.
             // Bu metot, oyuncunun gemisi olup olmadığını kontrol edip doğru sahneye yönlendirecek.
-            GameManager.Instance.OnCharacterDataReceived(response.User);
+            GameManager.Instance.OnCharacterDataReceived(response.CharacterData);
+            GameManager.Instance.ToScene("Login");
         }
         else
         {
             feedbackText.text = "Hata: " + (response?.Message ?? "Sunucuya bağlanılamadı.");
             registerButton.interactable = true;
         }
+
+        registerButton.interactable = true;
+    }
+
+    private void GoBack()
+    {
+        GameManager.Instance.ToScene("Login");
     }
 }

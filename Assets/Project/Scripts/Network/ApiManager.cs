@@ -3,7 +3,7 @@ using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Networking;
 using Newtonsoft.Json; // Projenizde Newtonsoft.Json paketinin kurulu olması gerekir
-using BarbarosKs.core.DTOs; // Sunucudaki DTO'ları Unity projenizde de tanımlamanız gerekir
+using BarbarosKs.Shared.DTOs.DTOs; // Sunucudaki DTO'ları Unity projenizde de tanımlamanız gerekir
 
 public class ApiManager : MonoBehaviour
 {
@@ -37,11 +37,14 @@ public class ApiManager : MonoBehaviour
     public async Task<AuthResponseDto> Login(string email, string password)
     {
         var loginRequest = new LoginRequestDto { Email = email, Password = password };
+        // Bu metot artık AuthResponseDto içinde CharacterData'yı da getiriyor.
         var response = await PostRequest<AuthResponseDto>("/Auth/login", loginRequest);
 
-        if (response is not { Success: true }) return response;
-        SetToken(response.Token);
-        Debug.Log("Giriş başarılı. Token kaydedildi." + response.Token);
+        if (response != null && response.Success)
+        {
+            SetToken(response.Token);
+            Debug.Log("Giriş başarılı. Token kaydedildi.");
+        }
 
         return response;
     }
@@ -61,14 +64,6 @@ public class ApiManager : MonoBehaviour
         };
 
         var response = await PostRequest<AuthResponseDto>("/Auth/register", registerRequest);
-
-        if (response != null && response.Success)
-        {
-            // Kayıt sonrası otomatik login yaptığımız için token'ı burada da kaydediyoruz.
-            SetToken(response.Token);
-            Debug.Log("Kayıt başarılı ve otomatik giriş yapıldı. Token kaydedildi.");
-        }
-
         return response;
     }
 
@@ -80,24 +75,6 @@ public class ApiManager : MonoBehaviour
         _authToken = null;
         PlayerPrefs.DeleteKey("AuthToken");
         Debug.Log("Oturum kapatıldı. Token silindi.");
-    }
-
-
-    /// <summary>
-    /// Sunucudan giriş yapmış kullanıcının karakter ve gemi bilgilerini çeker.
-    /// </summary>
-    public async Task<AccountDto> GetCharacterData()
-    {
-        if (!IsLoggedIn)
-        {
-            Debug.LogWarning("Karakter verisi çekmek için önce giriş yapılmalı.");
-            return null;
-        }
-
-        // GET isteği için yeni bir genel metot kullanacağız.
-        var response = await GetRequest<AccountDto>("/Players/me");
-
-        return response;
     }
 
     /// <summary>
@@ -153,6 +130,7 @@ public class ApiManager : MonoBehaviour
             await Task.Yield();
         }
 
+        Debug.Log($"<color=orange>TOKEN SENT:</color> Bearer {_authToken}" + request.ToString());
         if (request.result == UnityWebRequest.Result.Success)
             return JsonConvert.DeserializeObject<T>(request.downloadHandler.text);
         Debug.LogError($"API Hatası ({request.responseCode}): {request.error} - {request.downloadHandler.text}");

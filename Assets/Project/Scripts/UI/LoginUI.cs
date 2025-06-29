@@ -9,10 +9,12 @@ public class LoginUI : MonoBehaviour
     public TMP_InputField passwordInput;
     public Button loginButton;
     public TextMeshProUGUI feedbackText;
+    public Button registerButton;   
 
     private void Start()
     {
         loginButton.onClick.AddListener(OnLoginButtonClicked);
+        registerButton.onClick.AddListener(OnRegisterButtonClicked);       
     }
 
     private async void OnLoginButtonClicked()
@@ -20,31 +22,23 @@ public class LoginUI : MonoBehaviour
         feedbackText.text = "Giriş yapılıyor...";
         loginButton.interactable = false;
 
-        var loginResponse = await ApiManager.Instance.Login(emailInput.text, passwordInput.text);
+        var response = await ApiManager.Instance.Login(emailInput.text, passwordInput.text);
 
-        if (loginResponse != null && loginResponse.Success)
+        if (response is { Success: true })
         {
-            feedbackText.text = "Karakter verileri alınıyor...";
-        
-            // Login başarılı, şimdi karakter ve gemi verilerini çekiyoruz.
-            var characterData = await ApiManager.Instance.GetCharacterData();
-        
-            if (characterData != null)
-            {
-                GameManager.Instance.OnAccountReceived(loginResponse.User);
-                // Veri başarıyla alındı, GameManager'a devrediyoruz.
-                GameManager.Instance.OnCharacterDataReceived(characterData);
-            }
-            else
-            {
-                feedbackText.text = "Hata: Karakter verileri alınamadı.";
-                loginButton.interactable = true;
-            }
+            feedbackText.text = "Giriş başarılı! Veriler alınıyor...";
+            // Başarılı giriş sonrası dönen tam veriyi GameManager'a iletiyoruz.
+            GameManager.Instance.OnCharacterDataReceived(response.CharacterData);
         }
         else
         {
-            feedbackText.text = "Hata: " + (loginResponse?.Message ?? "Sunucuya bağlanılamadı.");
+            feedbackText.text = "Hata: " + (response?.Message ?? "Sunucuya bağlanılamadı.");
             loginButton.interactable = true;
         }
+    }
+
+    private void OnRegisterButtonClicked()
+    {
+        GameManager.Instance.ToScene("Register");     
     }
 }

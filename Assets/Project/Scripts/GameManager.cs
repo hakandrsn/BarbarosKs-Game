@@ -1,22 +1,21 @@
-using System.Collections.Generic;
-using BarbarosKs.core.DTOs;
+using System;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using BarbarosKs.Shared.DTOs.DTOs;
 
 public class GameManager : MonoBehaviour
 {
     public static GameManager Instance { get; private set; }
 
-    // API'den gelen tüm veriyi saklamak için yeni bir property
-    public AccountDto CharacterData { get; private set; }
-
-    // Kolay erişim için property'ler
-    public AccountDto CurrentAccount;
-    public PlayerDto CurrentPlayerProfile => CharacterData?.Player;
-    public List<ShipSummaryDto> PlayerShips => CurrentPlayerProfile?.Ships;
+    // API'den gelen tüm veriyi saklamak için
+    public CharacterSelectionDto CharacterData { get; private set; }
 
     // Oyuncunun seçtiği aktif gemiyi saklamak için
     public ShipSummaryDto ActiveShip { get; private set; }
+
+    // Kolay erişim için kısayollar
+    public PlayerProfileDto CurrentPlayerProfile => CharacterData?.PlayerProfile;
+    public Guid? LocalPlayerId => CharacterData?.PlayerProfile?.Id;
 
     private void Awake()
     {
@@ -31,7 +30,10 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    public void OnCharacterDataReceived(AccountDto characterData)
+    /// <summary>
+    /// Login veya Register sonrası API'den gelen veriyi işler ve doğru sahneye yönlendirir.
+    /// </summary>
+    public void OnCharacterDataReceived(CharacterSelectionDto characterData)
     {
         if (characterData == null)
         {
@@ -40,19 +42,16 @@ public class GameManager : MonoBehaviour
         }
 
         this.CharacterData = characterData;
-        if (characterData.Player != null)
-            Debug.Log($"Hoşgeldin, {characterData.Player.Username}! Sahip olunan gemi sayısı: {PlayerShips.Count}");
+        Debug.Log(
+            $"Hoşgeldin, {characterData.PlayerProfile.Username}! Sahip olunan gemi sayısı: {characterData.Ships.Count}");
 
-        // --- AKILLI YÖNLENDİRME MANTIĞI ---
-        // Oyuncunun hiç gemisi yok mu? (Yani yeni kayıt olmuş)
-        if (PlayerShips == null || PlayerShips.Count == 0)
+        if (characterData.Ships.Count == 0)
         {
             Debug.Log("Oyuncunun hiç gemisi yok. Doğrudan oyun sahnesine yönlendiriliyor...");
-            // Yeni oyuncunun aktif bir gemisi olmayacağı için ActiveShip'i null yapıyoruz.
             this.ActiveShip = null;
-            SceneManager.LoadScene("FisherSea");
+            SceneManager.LoadScene("CreateShip"); // TODO: Belki "İlk Gemiyi Alma" sahnesine yönlendirilebilir.
         }
-        else // Oyuncunun gemileri var mı?
+        else
         {
             Debug.Log("Oyuncunun gemileri var. Gemi seçim sahnesine yönlendiriliyor...");
             SceneManager.LoadScene("Scenes/SelectShipScene");
@@ -60,23 +59,17 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
-    /// ShipSelectionUI tarafından, oyuncu bir gemi seçtiğinde çağrılır.
+    /// Gemi seçim ekranından seçilen gemiyi ayarlar ve oyun dünyasına giriş yapar.
     /// </summary>
     public void SetActiveShipAndEnterGame(ShipSummaryDto selectedShip)
     {
         this.ActiveShip = selectedShip;
-        Debug.Log($"Aktif gemi seçildi: {selectedShip.Name} (ID: {selectedShip.Id}). Oyun sahnesi yükleniyor...");
+        Debug.Log($"Aktif gemi seçildi: {selectedShip.Name}. Oyun sahnesi yükleniyor...");
         SceneManager.LoadScene("FisherSea");
     }
 
-    public void OnAccountReceived(AccountDto accountData)
+    public void ToScene(string scene)
     {
-        if (accountData == null)
-        {
-            Debug.LogError("Karakter verisi alınamadı veya eksik!");
-            return;
-        }
-
-        this.CurrentAccount = accountData;
+        SceneManager.LoadScene(scene);
     }
 }

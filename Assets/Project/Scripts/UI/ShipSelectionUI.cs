@@ -1,5 +1,4 @@
-using System.Collections.Generic;
-using BarbarosKs.core.DTOs;
+using BarbarosKs.Shared.DTOs.DTOs;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -28,7 +27,7 @@ public class ShipSelectionUI : MonoBehaviour
         // Oyuncu adını UI'a yazdır
         if(playerNameText != null)
         {
-            playerNameText.text = characterData.Player.Username;
+            playerNameText.text = characterData.PlayerProfile.Username;
         }
 
         // Mevcut tüm butonları temizle (sahne yeniden yüklendiğinde vb. durumlar için)
@@ -38,27 +37,26 @@ public class ShipSelectionUI : MonoBehaviour
         }
 
         // Oyuncunun sahip olduğu her bir gemi için bir buton oluştur
-        if (characterData.Player != null)
-            foreach (var ship in characterData.Player.Ships)
+        foreach (var ship in characterData.Ships)
+        {
+            var buttonGo = Instantiate(shipButtonPrefab, shipListContainer);
+
+            // Butonun text'ini ayarla
+            var buttonText = buttonGo.GetComponentInChildren<TextMeshProUGUI>();
+            if (buttonText != null)
             {
-                var buttonGo = Instantiate(shipButtonPrefab, shipListContainer);
-
-                // Butonun text'ini ayarla
-                var buttonText = buttonGo.GetComponentInChildren<TextMeshProUGUI>();
-                if (buttonText != null)
-                {
-                    buttonText.text = $"{ship.Name} (Seviye: {ship.Level})";
-                }
-
-                // Butonun tıklama olayını ayarla
-                var button = buttonGo.GetComponent<Button>();
-                if (button != null)
-                {
-                    // Butona tıklandığında hangi geminin seçildiğini bildirmek için
-                    // OnShipSelected metodunu çağırıyoruz.
-                    button.onClick.AddListener(() => OnShipSelected(ship));
-                }
+                buttonText.text = $"{ship.Name} (Seviye: {ship.Level})";
             }
+
+            // Butonun tıklama olayını ayarla
+            var button = buttonGo.GetComponent<Button>();
+            if (button != null)
+            {
+                // Butona tıklandığında hangi geminin seçildiğini bildirmek için
+                // OnShipSelected metodunu çağırıyoruz.
+                button.onClick.AddListener(() => OnShipSelected(ship));
+            }
+        }
     }
 
     /// <summary>
