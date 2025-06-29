@@ -41,7 +41,7 @@ public class ApiManager : MonoBehaviour
 
         if (response is not { Success: true }) return response;
         SetToken(response.Token);
-        Debug.Log("Giriş başarılı. Token kaydedildi.");
+        Debug.Log("Giriş başarılı. Token kaydedildi." + response.Token);
 
         return response;
     }
@@ -49,24 +49,29 @@ public class ApiManager : MonoBehaviour
     /// <summary>
     /// API'ye kayıt olma isteği gönderir.
     /// </summary>
-    public async Task<AuthResponseDto> Register(string email, string password, string confirmPassword)
+    public async Task<AuthResponseDto>
+        Register(string email, string password, string confirmPassword, string username) // username parametresi eklendi
     {
         var registerRequest = new RegisterRequestDto
         {
             Email = email,
             Password = password,
-            ConfirmPassword = confirmPassword
+            ConfirmPassword = confirmPassword,
+            Username = username // Yeni parametre DTO'ya eklendi
         };
-        // Kayıt işlemi de token döndürebilir, bu yüzden aynı mantığı kullanıyoruz.
+
         var response = await PostRequest<AuthResponseDto>("/Auth/register", registerRequest);
 
-        if (response is not { Success: true }) return response;
-        SetToken(response.Token);
-        Debug.Log("Kayıt başarılı. Token kaydedildi.");
+        if (response != null && response.Success)
+        {
+            // Kayıt sonrası otomatik login yaptığımız için token'ı burada da kaydediyoruz.
+            SetToken(response.Token);
+            Debug.Log("Kayıt başarılı ve otomatik giriş yapıldı. Token kaydedildi.");
+        }
 
         return response;
     }
-    
+
     /// <summary>
     /// Oturum kapatma işlemi yapar.
     /// </summary>
@@ -75,6 +80,49 @@ public class ApiManager : MonoBehaviour
         _authToken = null;
         PlayerPrefs.DeleteKey("AuthToken");
         Debug.Log("Oturum kapatıldı. Token silindi.");
+    }
+
+
+    /// <summary>
+    /// Sunucudan giriş yapmış kullanıcının karakter ve gemi bilgilerini çeker.
+    /// </summary>
+    public async Task<AccountDto> GetCharacterData()
+    {
+        if (!IsLoggedIn)
+        {
+            Debug.LogWarning("Karakter verisi çekmek için önce giriş yapılmalı.");
+            return null;
+        }
+
+        // GET isteği için yeni bir genel metot kullanacağız.
+        var response = await GetRequest<AccountDto>("/Players/me");
+
+        return response;
+    }
+
+    /// <summary>
+    /// API'ye GET isteği göndermek için genel bir metot.
+    /// </summary>
+    private async Task<T> GetRequest<T>(string endpoint) where T : class
+    {
+        var url = baseApiUrl + endpoint;
+
+        using UnityWebRequest request = UnityWebRequest.Get(url);
+        // Token'ı Authorization header'ına ekliyoruz.
+        request.SetRequestHeader("Authorization", "Bearer " + _authToken);
+        Debug.Log($"<color=orange>TOKEN SENT:</color> Bearer {_authToken}");
+
+        var operation = request.SendWebRequest();
+
+        while (!operation.isDone)
+        {
+            await Task.Yield();
+        }
+
+        if (request.result == UnityWebRequest.Result.Success)
+            return JsonConvert.DeserializeObject<T>(request.downloadHandler.text);
+        Debug.LogError($"API Hatası ({request.responseCode}): {request.error} - {request.downloadHandler.text}");
+        return null;
     }
 
 
@@ -97,7 +145,7 @@ public class ApiManager : MonoBehaviour
         {
             request.SetRequestHeader("Authorization", "Bearer " + _authToken);
         }
-            
+
         var operation = request.SendWebRequest();
 
         while (!operation.isDone)

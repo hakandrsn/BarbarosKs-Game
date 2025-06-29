@@ -854,7 +854,7 @@ RectTransform:
   m_AnchoredPosition: {x: -5, y: 0}
   m_SizeDelta: {x: -20, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!1 &971737275
+--- !u!1 &1055068054
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -862,44 +862,38 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 971737280}
-  - component: {fileID: 971737279}
-  - component: {fileID: 971737278}
-  - component: {fileID: 971737277}
-  - component: {fileID: 971737276}
+  - component: {fileID: 1055068057}
+  - component: {fileID: 1055068056}
+  - component: {fileID: 1055068055}
   m_Layer: 0
-  m_Name: _SYSTEMS
+  m_Name: _SceneManagers
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &971737276
+--- !u!114 &1055068055
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 971737275}
+  m_GameObject: {fileID: 1055068054}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3214aa89bfe43554c8957642dfcc4625, type: 3}
+  m_Script: {fileID: 11500000, guid: c57e3d6b0bd5424295fc0ef8333475db, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  sounds: []
-  musicMixerGroup: {fileID: 0}
-  sfxMixerGroup: {fileID: 0}
-  ambientMusicTracks: []
-  combatMusicTracks: []
-  menuMusicTracks: []
-  musicFadeDuration: 2
---- !u!114 &971737277
+  defaultPlayerPrefab: {fileID: 4744233969276230312, guid: 8cfb67a09f97c8b43bd87da8f81f4b6f, type: 3}
+  prefabMappings: []
+  playersContainer: {fileID: 0}
+--- !u!114 &1055068056
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 971737275}
+  m_GameObject: {fileID: 1055068054}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 402adc8579d937a4e84f03ecf460548f, type: 3}
@@ -938,51 +932,21 @@ MonoBehaviour:
     m_ColorSpace: -1
     m_NumColorKeys: 2
     m_NumAlphaKeys: 2
-  targetMarkerPrefab: {fileID: 0}
-  targetMarkersContainer: {fileID: 0}
+  targetMarkerPrefab: {fileID: 8762405910555896786, guid: fcb74f28d107e284e80af037bfec14ca, type: 3}
+  targetMarkersContainer: {fileID: 3110181916987346578, guid: 66a2e873ea858c841902fc948e762576, type: 3}
   notificationPanel: {fileID: 0}
   notificationText: {fileID: 0}
   notificationDuration: 3
---- !u!114 &971737278
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 971737275}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c57e3d6b0bd5424295fc0ef8333475db, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  defaultPlayerPrefab: {fileID: 4744233969276230312, guid: 8cfb67a09f97c8b43bd87da8f81f4b6f, type: 3}
-  prefabMappings: []
-  playersContainer: {fileID: 0}
---- !u!114 &971737279
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 971737275}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6184eec591f940a0be1ce211d7cf6e8e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  serverIP: 127.0.0.1
-  serverPort: 9999
-  playerName: Barbarosx
---- !u!4 &971737280
+--- !u!4 &1055068057
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 971737275}
+  m_GameObject: {fileID: 1055068054}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -0.41909, y: 0, z: -6.78434}
+  m_LocalPosition: {x: 670.8313, y: 598.2958, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1062,51 +1026,6 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &1497188027
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1497188029}
-  - component: {fileID: 1497188028}
-  m_Layer: 0
-  m_Name: ApiManager
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &1497188028
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1497188027}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7f2663d5bdd326f4ba43f8facb27fdf8, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  baseApiUrl: http://localhost:5252/api
---- !u!4 &1497188029
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1497188027}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.98352, y: 0, z: 26.24814}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1546,8 +1465,7 @@ SceneRoots:
   m_Roots:
   - {fileID: 780941383}
   - {fileID: 215105422}
-  - {fileID: 971737280}
   - {fileID: 457256754}
   - {fileID: 1211506819}
   - {fileID: 2136257166}
-  - {fileID: 1497188029}
+  - {fileID: 1055068057}

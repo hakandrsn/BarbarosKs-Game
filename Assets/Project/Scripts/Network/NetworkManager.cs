@@ -7,6 +7,7 @@ using BarbarosKs.core.DTOs;
 using UnityEngine;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Unity.VisualScripting;
 using UnityEngine.SceneManagement;
 
 namespace Project.Scripts.Network
@@ -61,13 +62,12 @@ namespace Project.Scripts.Network
                 Destroy(gameObject);
             }
         }
-        
+
         private void OnEnable()
         {
-            // Sahne yüklendiğinde bu metot çalışır.
             SceneManager.sceneLoaded += OnSceneLoaded;
         }
-        
+
         private void OnDisable()
         {
             SceneManager.sceneLoaded -= OnSceneLoaded;
@@ -75,21 +75,22 @@ namespace Project.Scripts.Network
 
         private void Start()
         {
-          //  ConnectToServer();
+            //  ConnectToServer();
         }
 
         private void Update()
         {
             ProcessMessageQueue();
         }
-        
-        public void ConnectToServer(string playerId, string playerName)
+
+        public void ConnectToServer(PlayerDto localPlayerData)
         {
             if (IsConnected) return;
-
+            this.LocalPlayerId = localPlayerData.Id.ToString();
+            this._playerNameAttempt = localPlayerData.Username;
             // Bu bilgileri daha sonra sunucuya göndermek için saklayabiliriz.
-            this.LocalPlayerId = playerId; 
-            this.playerName = playerName; // Sınıfa private string playerName; ekleyin.
+            this.LocalPlayerId = LocalPlayerId;
+            this.playerName = _playerNameAttempt; // Sınıfa private string playerName; ekleyin.
 
             try
             {
@@ -107,16 +108,30 @@ namespace Project.Scripts.Network
         {
             DisconnectFromServer();
         }
-        
+
+        /// <summary>
+        /// Herhangi bir sahne yüklendiğinde bu metot otomatik olarak çalışır.
+        /// </summary>
         void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
-            // Eğer yüklenen sahne oyun sahnesiyse ve bir kullanıcı giriş yapmışsa, sunucuya bağlan.
-            if (scene.name != "GameScene" || GameManager.Instance.CurrentUser == null) return;
+            // Eğer yüklenen sahne "GameScene" ise VE bir kullanıcı giriş yapmışsa...
+            if (scene.name != "GameScene" || GameManager.Instance == null ||
+                GameManager.Instance.CurrentPlayerProfile == null) return;
             Debug.Log("Oyun sahnesi yüklendi. NetworkManager başlatılıyor...");
-        
-            var pId = GameManager.Instance.CurrentPlayer.Id.ToString();
-            var pName = GameManager.Instance.CurrentPlayer.Username;
-            ConnectToServer(pId, pName);
+
+            // GameManager'dan oyuncu bilgilerini al
+            var playerInfo = GameManager.Instance.CurrentPlayerProfile;
+
+            // İSTEĞİNİZ: Kullanıcı bilgilerini logla
+            Debug.Log($"GİRİŞ YAPAN KULLANICI -> ID: {playerInfo.Id}, Username: {playerInfo.Username}");
+            if (playerInfo.Id.IsUnityNull())
+            {
+                // TODO: Gemi adı DTO'ya eklendiğinde loglanabilir. Şimdilik ID'sini logluyoruz.
+                Debug.Log($"AKTİF GEMİ ID -> ID: {playerInfo.Id}");
+            }
+
+            // Bu bilgilerle gerçek zamanlı sunucuya bağlan.
+            ConnectToServer(playerInfo);
         }
 
         #region Bağlantı ve Mesajlaşma

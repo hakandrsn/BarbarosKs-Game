@@ -20,18 +20,30 @@ public class LoginUI : MonoBehaviour
         feedbackText.text = "Giriş yapılıyor...";
         loginButton.interactable = false;
 
-        var response = await ApiManager.Instance.Login(emailInput.text, passwordInput.text);
+        var loginResponse = await ApiManager.Instance.Login(emailInput.text, passwordInput.text);
 
-        if (response != null && response.Success)
+        if (loginResponse != null && loginResponse.Success)
         {
-            feedbackText.text = "Giriş başarılı! " + response.Message;
+            feedbackText.text = "Karakter verileri alınıyor...";
         
-            // YENİ: Başarılı giriş bilgisini GameManager'a aktar ve sahneyi yükle.
-            GameManager.Instance.OnLoginSuccess(response.User);
+            // Login başarılı, şimdi karakter ve gemi verilerini çekiyoruz.
+            var characterData = await ApiManager.Instance.GetCharacterData();
+        
+            if (characterData != null)
+            {
+                GameManager.Instance.OnAccountReceived(loginResponse.User);
+                // Veri başarıyla alındı, GameManager'a devrediyoruz.
+                GameManager.Instance.OnCharacterDataReceived(characterData);
+            }
+            else
+            {
+                feedbackText.text = "Hata: Karakter verileri alınamadı.";
+                loginButton.interactable = true;
+            }
         }
         else
         {
-            feedbackText.text = "Hata: " + (response?.Message ?? "Sunucuya bağlanılamadı.");
+            feedbackText.text = "Hata: " + (loginResponse?.Message ?? "Sunucuya bağlanılamadı.");
             loginButton.interactable = true;
         }
     }
