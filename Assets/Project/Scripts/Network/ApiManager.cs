@@ -1,18 +1,22 @@
 using System.Text;
 using System.Threading.Tasks;
+using BarbarosKs.Shared.DTOs;
+using Newtonsoft.Json;
 using UnityEngine;
 using UnityEngine.Networking;
-using Newtonsoft.Json; // Projenizde Newtonsoft.Json paketinin kurulu olması gerekir
-using BarbarosKs.Shared.DTOs.DTOs; // Sunucudaki DTO'ları Unity projenizde de tanımlamanız gerekir
+// Projenizde Newtonsoft.Json paketinin kurulu olması gerekir
+
+// Sunucudaki DTO'ları Unity projenizde de tanımlamanız gerekir
 
 public class ApiManager : MonoBehaviour
 {
-    // Singleton Pattern: Projenin her yerinden kolayca erişim için
-    public static ApiManager Instance { get; private set; }
-
     [SerializeField] private string baseApiUrl = "https://localhost:5001/api"; // WebApi'nizin adresini buraya yazın
 
     private string _authToken;
+
+    // Singleton Pattern: Projenin her yerinden kolayca erişim için
+    public static ApiManager Instance { get; private set; }
+    public bool IsLoggedIn => !string.IsNullOrEmpty(_authToken);
 
     private void Awake()
     {
@@ -28,11 +32,13 @@ public class ApiManager : MonoBehaviour
         }
     }
 
-    public string GetAuthToken() => _authToken;
-    public bool IsLoggedIn => !string.IsNullOrEmpty(_authToken);
+    public string GetAuthToken()
+    {
+        return _authToken;
+    }
 
     /// <summary>
-    /// API'ye giriş isteği gönderir.
+    ///     API'ye giriş isteği gönderir.
     /// </summary>
     public async Task<AuthResponseDto> Login(string email, string password)
     {
@@ -50,7 +56,7 @@ public class ApiManager : MonoBehaviour
     }
 
     /// <summary>
-    /// API'ye kayıt olma isteği gönderir.
+    ///     API'ye kayıt olma isteği gönderir.
     /// </summary>
     public async Task<AuthResponseDto>
         Register(string email, string password, string confirmPassword, string username) // username parametresi eklendi
@@ -68,7 +74,7 @@ public class ApiManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Oturum kapatma işlemi yapar.
+    ///     Oturum kapatma işlemi yapar.
     /// </summary>
     public void Logout()
     {
@@ -78,23 +84,20 @@ public class ApiManager : MonoBehaviour
     }
 
     /// <summary>
-    /// API'ye GET isteği göndermek için genel bir metot.
+    ///     API'ye GET isteği göndermek için genel bir metot.
     /// </summary>
     private async Task<T> GetRequest<T>(string endpoint) where T : class
     {
         var url = baseApiUrl + endpoint;
 
-        using UnityWebRequest request = UnityWebRequest.Get(url);
+        using var request = UnityWebRequest.Get(url);
         // Token'ı Authorization header'ına ekliyoruz.
         request.SetRequestHeader("Authorization", "Bearer " + _authToken);
         Debug.Log($"<color=orange>TOKEN SENT:</color> Bearer {_authToken}");
 
         var operation = request.SendWebRequest();
 
-        while (!operation.isDone)
-        {
-            await Task.Yield();
-        }
+        while (!operation.isDone) await Task.Yield();
 
         if (request.result == UnityWebRequest.Result.Success)
             return JsonConvert.DeserializeObject<T>(request.downloadHandler.text);
@@ -104,7 +107,7 @@ public class ApiManager : MonoBehaviour
 
 
     /// <summary>
-    /// API'ye POST isteği göndermek için genel bir metot.
+    ///     API'ye POST isteği göndermek için genel bir metot.
     /// </summary>
     private async Task<T> PostRequest<T>(string endpoint, object payload) where T : class
     {
@@ -118,19 +121,13 @@ public class ApiManager : MonoBehaviour
         request.SetRequestHeader("Content-Type", "application/json");
 
         // Eğer token varsa, Authorization header'ını ekle
-        if (IsLoggedIn)
-        {
-            request.SetRequestHeader("Authorization", "Bearer " + _authToken);
-        }
+        if (IsLoggedIn) request.SetRequestHeader("Authorization", "Bearer " + _authToken);
 
         var operation = request.SendWebRequest();
 
-        while (!operation.isDone)
-        {
-            await Task.Yield();
-        }
+        while (!operation.isDone) await Task.Yield();
 
-        Debug.Log($"<color=orange>TOKEN SENT:</color> Bearer {_authToken}" + request.ToString());
+        Debug.Log($"<color=orange>TOKEN SENT:</color> Bearer {_authToken}" + request);
         if (request.result == UnityWebRequest.Result.Success)
             return JsonConvert.DeserializeObject<T>(request.downloadHandler.text);
         Debug.LogError($"API Hatası ({request.responseCode}): {request.error} - {request.downloadHandler.text}");
@@ -144,7 +141,7 @@ public class ApiManager : MonoBehaviour
             return null; // Eğer hata mesajı JSON formatında değilse null dön.
         }
 
-        return JsonConvert.DeserializeObject<T>(request.downloadHandler.text);
+        // return JsonConvert.DeserializeObject<T>(request.downloadHandler.text);
     }
 
     private void SetToken(string token)
@@ -157,9 +154,6 @@ public class ApiManager : MonoBehaviour
     private void LoadToken()
     {
         _authToken = PlayerPrefs.GetString("AuthToken", null);
-        if (IsLoggedIn)
-        {
-            Debug.Log("Geçerli bir oturum bulundu.");
-        }
+        if (IsLoggedIn) Debug.Log("Geçerli bir oturum bulundu.");
     }
 }

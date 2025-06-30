@@ -1,7 +1,6 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using TMPro;
-using UnityEngine.SceneManagement;
 
 public class LoginUI : MonoBehaviour
 {
@@ -9,12 +8,16 @@ public class LoginUI : MonoBehaviour
     public TMP_InputField passwordInput;
     public Button loginButton;
     public TextMeshProUGUI feedbackText;
-    public Button registerButton;   
+    public Button registerButton;
 
     private void Start()
     {
         loginButton.onClick.AddListener(OnLoginButtonClicked);
-        registerButton.onClick.AddListener(OnRegisterButtonClicked);       
+        registerButton.onClick.AddListener(OnRegisterButtonClicked);
+        
+        // Test için default değerler
+        emailInput.text = "hakan@gmail.com";
+        passwordInput.text = "qwerdas";
     }
 
     private async void OnLoginButtonClicked()
@@ -39,6 +42,6 @@ public class LoginUI : MonoBehaviour
 
     private void OnRegisterButtonClicked()
     {
-        GameManager.Instance.ToScene("Register");     
+        GameManager.Instance.ToScene("Register");
     }
 }

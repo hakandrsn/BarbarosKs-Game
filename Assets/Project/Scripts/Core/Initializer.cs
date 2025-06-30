@@ -3,7 +3,7 @@ using UnityEngine.SceneManagement;
 
 public class Initializer : MonoBehaviour
 {
-    void Start()
+    private void Start()
     {
         // Bu script, oyun başlar başlamaz bir sonraki sahneyi yükler.
         // Yöneticileri barındıran bu nesne DontDestroyOnLoad olduğu için

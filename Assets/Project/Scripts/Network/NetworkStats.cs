@@ -1,36 +1,35 @@
-﻿using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.UI;
 
 namespace Project.Scripts.Network
 {
     /// <summary>
-    /// Ağ istatistiklerini görselleştiren bir bileşen.
-    /// NetworkManager ile birlikte kullanılır.
+    ///     Ağ istatistiklerini görselleştiren bir bileşen.
+    ///     NetworkManager ile birlikte kullanılır.
     /// </summary>
     [RequireComponent(typeof(NetworkManager))]
     public class NetworkStats : MonoBehaviour
     {
-        [Header("UI Referansları")]
-        [SerializeField] private Text connectionStatusText;
+        [Header("UI Referansları")] [SerializeField]
+        private Text connectionStatusText;
+
         [SerializeField] private Text pingText;
         [SerializeField] private Text packetStatsText;
         [SerializeField] private Text uptimeText;
         [SerializeField] private Image connectionStatusImage;
 
-        [Header("Ayarlar")]
-        [SerializeField] private float updateInterval = 0.5f;
+        [Header("Ayarlar")] [SerializeField] private float updateInterval = 0.5f;
+
         [SerializeField] private Color connectedColor = Color.green;
         [SerializeField] private Color disconnectedColor = Color.red;
         [SerializeField] private bool sendAutomaticPings = true;
         [SerializeField] private float pingInterval = 2f;
         [SerializeField] private bool showDebugGUI = true;
+        private float lastPingTime;
+        private float lastUpdateTime;
 
         // NetworkManager referansı
         private NetworkManager networkManager;
-        private float lastUpdateTime;
-        private float lastPingTime;
 
         private void Start()
         {
@@ -40,7 +39,6 @@ namespace Project.Scripts.Network
             {
                 Debug.LogError("NetworkStats bileşeni NetworkManager ile aynı GameObject üzerinde olmalıdır!");
                 enabled = false;
-                return;
             }
         }
 
@@ -62,64 +60,7 @@ namespace Project.Scripts.Network
         }
 
         /// <summary>
-        /// UI istatistiklerini günceller
-        /// </summary>
-        private void UpdateUIStats()
-        {
-            // Bağlantı durumu
-            if (connectionStatusText != null)
-            {
-                connectionStatusText.text = networkManager.IsConnected ? "Bağlı" : "Bağlı Değil";
-            }
-
-            // Bağlantı durumu görselleştirme
-            if (connectionStatusImage != null)
-            {
-                connectionStatusImage.color = networkManager.IsConnected ? connectedColor : disconnectedColor;
-            }
-
-            // Ping
-            if (pingText != null)
-            {
-                pingText.text = $"Ping: {networkManager.LastPingTime:F1} ms";
-            }
-
-            // Paket istatistikleri
-            if (packetStatsText != null)
-            {
-                packetStatsText.text = $"Gönderilen: {networkManager.SentPacketCount}\nAlınan: {networkManager.ReceivedPacketCount}";
-            }
-
-            // Çalışma süresi
-            if (uptimeText != null)
-            {
-                if (networkManager.IsConnected)
-                {
-                    float uptime = networkManager.ConnectionUptime;
-                    string formattedTime = FormatTime(uptime);
-                    uptimeText.text = $"Çalışma Süresi: {formattedTime}";
-                }
-                else
-                {
-                    uptimeText.text = "Çalışma Süresi: --:--:--";
-                }
-            }
-        }
-
-        /// <summary>
-        /// Saniye cinsinden süreyi formatlar (SS:DD:SS)
-        /// </summary>
-        private string FormatTime(float timeInSeconds)
-        {
-            int hours = Mathf.FloorToInt(timeInSeconds / 3600);
-            int minutes = Mathf.FloorToInt((timeInSeconds % 3600) / 60);
-            int seconds = Mathf.FloorToInt(timeInSeconds % 60);
-
-            return string.Format("{0:00}:{1:00}:{2:00}", hours, minutes, seconds);
-        }
-
-        /// <summary>
-        /// Temel ağ istatistiklerini göstermek için OnGUI
+        ///     Temel ağ istatistiklerini göstermek için OnGUI
         /// </summary>
         private void OnGUI()
         {
@@ -133,13 +74,59 @@ namespace Project.Scripts.Network
             GUILayout.Label($"Ping: {networkManager.LastPingTime:F1} ms");
             GUILayout.Label($"Paketler: +{networkManager.SentPacketCount} / -{networkManager.ReceivedPacketCount}");
 
-            if (networkManager.IsConnected)
-            {
-                GUILayout.Label($"Süre: {FormatTime(networkManager.ConnectionUptime)}");
-            }
+            if (networkManager.IsConnected) GUILayout.Label($"Süre: {FormatTime(networkManager.ConnectionUptime)}");
 
             GUILayout.EndVertical();
             GUILayout.EndArea();
+        }
+
+        /// <summary>
+        ///     UI istatistiklerini günceller
+        /// </summary>
+        private void UpdateUIStats()
+        {
+            // Bağlantı durumu
+            if (connectionStatusText != null)
+                connectionStatusText.text = networkManager.IsConnected ? "Bağlı" : "Bağlı Değil";
+
+            // Bağlantı durumu görselleştirme
+            if (connectionStatusImage != null)
+                connectionStatusImage.color = networkManager.IsConnected ? connectedColor : disconnectedColor;
+
+            // Ping
+            if (pingText != null) pingText.text = $"Ping: {networkManager.LastPingTime:F1} ms";
+
+            // Paket istatistikleri
+            if (packetStatsText != null)
+                packetStatsText.text =
+                    $"Gönderilen: {networkManager.SentPacketCount}\nAlınan: {networkManager.ReceivedPacketCount}";
+
+            // Çalışma süresi
+            if (uptimeText != null)
+            {
+                if (networkManager.IsConnected)
+                {
+                    var uptime = networkManager.ConnectionUptime;
+                    var formattedTime = FormatTime(uptime);
+                    uptimeText.text = $"Çalışma Süresi: {formattedTime}";
+                }
+                else
+                {
+                    uptimeText.text = "Çalışma Süresi: --:--:--";
+                }
+            }
+        }
+
+        /// <summary>
+        ///     Saniye cinsinden süreyi formatlar (SS:DD:SS)
+        /// </summary>
+        private string FormatTime(float timeInSeconds)
+        {
+            var hours = Mathf.FloorToInt(timeInSeconds / 3600);
+            var minutes = Mathf.FloorToInt(timeInSeconds % 3600 / 60);
+            var seconds = Mathf.FloorToInt(timeInSeconds % 60);
+
+            return string.Format("{0:00}:{1:00}:{2:00}", hours, minutes, seconds);
         }
     }
 }

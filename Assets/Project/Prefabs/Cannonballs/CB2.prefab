@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 8108698657277109719}
   - component: {fileID: 2306766232502782529}
   - component: {fileID: 7163557855917137549}
+  - component: {fileID: 9223372036854775807}
   - component: {fileID: 664000755100372856}
   m_Layer: 0
   m_Name: CB2
@@ -30,7 +31,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: -3.22173, y: 0.97, z: -4.96319}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 0.4, y: 0.4, z: 0.4}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
@@ -109,6 +110,33 @@ SphereCollider:
   serializedVersion: 3
   m_Radius: 0.5
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!54 &9223372036854775807
+Rigidbody:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5841565649136859007}
+  serializedVersion: 5
+  m_Mass: 1.2
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
+  m_CenterOfMass: {x: 0, y: 0, z: 0}
+  m_InertiaTensor: {x: 1, y: 1, z: 1}
+  m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ImplicitCom: 1
+  m_ImplicitTensor: 1
+  m_UseGravity: 1
+  m_IsKinematic: 0
+  m_Interpolate: 0
+  m_Constraints: 0
+  m_CollisionDetection: 0
 --- !u!114 &664000755100372856
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -121,7 +149,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 554ce3cfb7da72a4d91b8315b18b0905, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  lifetime: 5
-  damage: 10
-  hitEffectPrefab: {fileID: 0}
+  flightTime: 1
+  arcHeight: 2
+  damage: 5
+  hitEffectPrefab: {fileID: 1000011374699230, guid: 36330f91b5c88704988b15d838b7b9d8, type: 3}
   hitSound: {fileID: 0}

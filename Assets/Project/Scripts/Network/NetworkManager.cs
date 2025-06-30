@@ -1,29 +1,32 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
+using Newtonsoft.Json;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using BarbarosKs.Shared.DTOs.Game; // DİKKAT: Yeni ve doğru DTO namespace'i
-using Newtonsoft.Json;
+using BarbarosKs.Shared.DTOs;
 
 namespace Project.Scripts.Network
 {
     public class NetworkManager : MonoBehaviour
     {
-        public static NetworkManager Instance { get; private set; }
-
         [Header("Ağ Ayarları")] [SerializeField]
         private string serverIP = "127.0.0.1";
 
         [SerializeField] private int serverPort = 9999;
+        private readonly Queue<string> _incomingMessages = new();
+        private readonly object _messageLock = new();
+        private readonly Dictionary<long, float> _pingTimestamps = new();
+        private Thread _clientReceiveThread;
+
+        private float _connectionStartTime;
+        private NetworkStream _stream;
 
         private TcpClient _tcpClient;
-        private NetworkStream _stream;
-        private Thread _clientReceiveThread;
-        private readonly Queue<string> _incomingMessages = new Queue<string>();
-        private readonly object _messageLock = new object();
+        public static NetworkManager Instance { get; private set; }
 
         public bool IsConnected { get; private set; }
         public int SentPacketCount { get; private set; }
@@ -31,49 +34,6 @@ namespace Project.Scripts.Network
         public float ConnectionUptime => IsConnected ? Time.time - _connectionStartTime : 0f;
         public float LastPingTime { get; private set; }
         public string ServerEndpoint => $"{serverIP}:{serverPort}";
-
-        private float _connectionStartTime;
-        private readonly Dictionary<long, float> _pingTimestamps = new Dictionary<long, float>();
-
-
-        #region Public Events
-
-        /// <summary>
-        /// Gerçek zamanlı oyun sunucusuna başarıyla bağlandığında tetiklenir.
-        /// </summary>
-        public event Action OnConnectedToServer;
-
-        /// <summary>
-        /// Sunucuyla olan bağlantı koptuğunda tetiklenir.
-        /// </summary>
-        public event Action OnDisconnectedFromServer;
-
-        /// <summary>
-        /// Oyuna ilk girildiğinde, sunucudaki tüm varlıkların durumunu içeren paket geldiğinde tetiklenir.
-        /// </summary>
-        public event Action<S2C_WorldStateData> OnWorldStateReceived;
-
-        /// <summary>
-        /// Oyun dünyasına yeni bir varlık (oyuncu, NPC vb.) eklendiğinde tetiklenir.
-        /// </summary>
-        public event Action<S2C_EntitySpawnData> OnEntitySpawned;
-
-        /// <summary>
-        /// Oyun dünyasından bir varlık kaldırıldığında tetiklenir.
-        /// </summary>
-        public event Action<S2C_EntityDespawnData> OnEntityDespawned;
-
-        /// <summary>
-        /// Dünyadaki varlıkların pozisyon/rotasyon güncellemeleri geldiğinde tetiklenir.
-        /// </summary>
-        public event Action<S2C_TransformUpdateData> OnTransformUpdate;
-
-        /// <summary>
-        /// Bir varlığın canı değiştiğinde tetiklenir.
-        /// </summary>
-        public event Action<S2C_HealthUpdateData> OnHealthUpdate;
-
-        #endregion
 
         private void Awake()
         {
@@ -88,12 +48,19 @@ namespace Project.Scripts.Network
             }
         }
 
-        private void OnEnable() => SceneManager.sceneLoaded += OnSceneLoaded;
-        private void OnDisable() => SceneManager.sceneLoaded -= OnSceneLoaded;
-
         private void Update()
         {
             ProcessMessageQueue();
+        }
+
+        private void OnEnable()
+        {
+            SceneManager.sceneLoaded += OnSceneLoaded;
+        }
+
+        private void OnDisable()
+        {
+            SceneManager.sceneLoaded -= OnSceneLoaded;
         }
 
         private void OnApplicationQuit()
@@ -102,16 +69,79 @@ namespace Project.Scripts.Network
         }
 
         /// <summary>
-        /// "GameScene" yüklendiğinde oyun sunucusuna bağlanma sürecini başlatır.
+        ///     "GameScene" yüklendiğinde oyun sunucusuna bağlanma sürecini başlatır.
         /// </summary>
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
-            if (scene.name == "GameScene" && GameManager.Instance?.ActiveShip != null)
+            Debug.Log($"==== SAHNE YÜKLENDİ: {scene.name} ====");
+            Debug.Log($"GameManager Instance: {(GameManager.Instance != null ? "MEVCUT" : "NULL")}");
+            
+            if (GameManager.Instance != null)
             {
-                Debug.Log("Oyun sahnesi yüklendi. NetworkManager oyun sunucusuna bağlanıyor...");
+                Debug.Log($"GameManager.ActiveShip: {(GameManager.Instance.ActiveShip != null ? $"MEVCUT - {GameManager.Instance.ActiveShip.Name} (ID: {GameManager.Instance.ActiveShip.Id})" : "NULL")}");
+                Debug.Log($"GameManager.LocalPlayerId: {(GameManager.Instance.LocalPlayerId.HasValue ? GameManager.Instance.LocalPlayerId.Value.ToString() : "NULL")}");
+            }
+            
+            bool apiManagerExists = ApiManager.Instance != null;
+            string authToken = ApiManager.Instance?.GetAuthToken();
+            Debug.Log($"ApiManager Instance: {(apiManagerExists ? "MEVCUT" : "NULL")}");
+            Debug.Log($"Auth Token: {(string.IsNullOrEmpty(authToken) ? "NULL/BOŞ" : $"MEVCUT ({authToken.Length} karakter)")}");
+            
+            if (scene.name == "FisherSea" && GameManager.Instance?.ActiveShip != null)
+            {
+                Debug.Log("✅ Tüm koşullar sağlandı. NetworkManager oyun sunucusuna bağlanıyor...");
                 ConnectToGameServer();
             }
+            else if (scene.name == "FisherSea")
+            {
+                Debug.LogError("❌ FisherSea sahnesinde ActiveShip NULL! Sunucuya bağlanılamadı.");
+                Debug.LogError("➡️ Gemi seçimi yapılmamış olabilir. Gemi seçim ekranından gemi seçmeyi deneyin.");
+            }
+            else
+            {
+                Debug.Log($"ℹ️ Sahne '{scene.name}' - Bağlantı gerekmiyor.");
+            }
         }
+
+
+        #region Public Events
+
+        /// <summary>
+        ///     Gerçek zamanlı oyun sunucusuna başarıyla bağlandığında tetiklenir.
+        /// </summary>
+        public event Action OnConnectedToServer;
+
+        /// <summary>
+        ///     Sunucuyla olan bağlantı koptuğunda tetiklenir.
+        /// </summary>
+        public event Action OnDisconnectedFromServer;
+
+        /// <summary>
+        ///     Oyuna ilk girildiğinde, sunucudaki tüm varlıkların durumunu içeren paket geldiğinde tetiklenir.
+        /// </summary>
+        public event Action<S2C_WorldStateData> OnWorldStateReceived;
+
+        /// <summary>
+        ///     Oyun dünyasına yeni bir varlık (oyuncu, NPC vb.) eklendiğinde tetiklenir.
+        /// </summary>
+        public event Action<S2C_EntitySpawnData> OnEntitySpawned;
+
+        /// <summary>
+        ///     Oyun dünyasından bir varlık kaldırıldığında tetiklenir.
+        /// </summary>
+        public event Action<S2C_EntityDespawnData> OnEntityDespawned;
+
+        /// <summary>
+        ///     Dünyadaki varlıkların pozisyon/rotasyon güncellemeleri geldiğinde tetiklenir.
+        /// </summary>
+        public event Action<S2C_TransformUpdateData> OnTransformUpdate;
+
+        /// <summary>
+        ///     Bir varlığın canı değiştiğinde tetiklenir.
+        /// </summary>
+        public event Action<S2C_HealthUpdateData> OnHealthUpdate;
+
+        #endregion
 
         #region Bağlantı ve Temel İletişim
 
@@ -135,8 +165,13 @@ namespace Project.Scripts.Network
             try
             {
                 _tcpClient.EndConnect(ar);
-                if (!_tcpClient.Connected) return;
+                if (!_tcpClient.Connected) 
+                {
+                    Debug.LogError("TCP bağlantısı başarısız!");
+                    return;
+                }
 
+                Debug.Log("TCP bağlantısı başarılı! Mesaj alma thread'i başlatılıyor...");
                 _stream = _tcpClient.GetStream();
                 _clientReceiveThread.Start();
                 IsConnected = true;
@@ -145,6 +180,7 @@ namespace Project.Scripts.Network
                     _incomingMessages.Enqueue(JsonConvert.SerializeObject(new GameMessage
                         { Type = (MessageType)(-1) }));
                 } // Özel içsel mesaj
+                Debug.Log("NetworkManager sunucuya başarıyla bağlandı!");
             }
             catch (Exception e)
             {
@@ -154,7 +190,113 @@ namespace Project.Scripts.Network
 
         private void ReceiveMessages()
         {
-            // ... Bu metodun içeriği aynı kalabilir (byte okuma ve kuyruğa ekleme) ...
+            Debug.Log("🔍 [RECEIVE] ReceiveMessages thread başlatıldı!");
+            
+            try
+            {
+                var buffer = new byte[4096];
+                var messageBuffer = new List<byte>();
+                
+                while (IsConnected && _stream != null)
+                {
+                    try
+                    {
+                        var bytesRead = _stream.Read(buffer, 0, buffer.Length);
+                        if (bytesRead == 0)
+                        {
+                            Debug.LogWarning("❌ [RECEIVE] Sunucu bağlantısı kapandı!");
+                            break;
+                        }
+                        
+                        Debug.Log($"🔍 [RECEIVE] {bytesRead} bytes alındı sunucudan");
+                        
+                        // Okunan byte'ları mesaj buffer'ına ekle
+                        for (int i = 0; i < bytesRead; i++)
+                        {
+                            messageBuffer.Add(buffer[i]);
+                        }
+                        
+                        // Mesaj sınırlayıcılarını kontrol et (\n ile ayrılmış JSON mesajları)
+                        var messageData = System.Text.Encoding.UTF8.GetString(messageBuffer.ToArray());
+                        
+                        // Hem newline hem de '}{ pattern'lerini kontrol et (birbirine yapışık JSON'lar için)
+                        var processedMessages = new List<string>();
+                        var tempData = messageData;
+                        
+                        // Önce newline ile ayrılmış mesajları al
+                        var newlineMessages = tempData.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                        
+                        foreach (var msg in newlineMessages)
+                        {
+                            var trimmedMsg = msg.Trim();
+                            if (string.IsNullOrEmpty(trimmedMsg)) continue;
+                            
+                            // Birbirine yapışık JSON'ları ayır (}{pattern)
+                            if (trimmedMsg.Contains("}{"))
+                            {
+                                // '}' pozisyonlarını bul ve her birinden sonra split yap
+                                var currentPos = 0;
+                                var braceCount = 0;
+                                var jsonStart = 0;
+                                
+                                for (int i = 0; i < trimmedMsg.Length; i++)
+                                {
+                                    if (trimmedMsg[i] == '{') braceCount++;
+                                    else if (trimmedMsg[i] == '}')
+                                    {
+                                        braceCount--;
+                                        if (braceCount == 0) // Tam bir JSON tamamlandı
+                                        {
+                                            var jsonPart = trimmedMsg.Substring(jsonStart, i - jsonStart + 1);
+                                            if (!string.IsNullOrEmpty(jsonPart))
+                                            {
+                                                processedMessages.Add(jsonPart);
+                                            }
+                                            jsonStart = i + 1;
+                                        }
+                                    }
+                                }
+                            }
+                            else if (trimmedMsg.StartsWith("{") && trimmedMsg.EndsWith("}"))
+                            {
+                                processedMessages.Add(trimmedMsg);
+                            }
+                        }
+                        
+                        if (processedMessages.Count > 0)
+                        {
+                            Debug.Log($"🔍 [RECEIVE] {processedMessages.Count} tam mesaj bulundu");
+                            
+                            // İşlenen mesajları queue'ye ekle
+                            foreach (var message in processedMessages)
+                            {
+                                Debug.Log($"✅ [RECEIVE] Mesaj queue'ye ekleniyor: {message.Substring(0, Math.Min(100, message.Length))}...");
+                                lock (_messageLock)
+                                {
+                                    _incomingMessages.Enqueue(message);
+                                    ReceivedPacketCount++;
+                                }
+                            }
+                            
+                            messageBuffer.Clear(); // Buffer'ı temizle
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogError($"❌ [RECEIVE] ReceiveMessages hata: {ex.Message}");
+                        break;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"❌ [RECEIVE] ReceiveMessages thread hata: {ex.Message}");
+            }
+            finally
+            {
+                Debug.Log("🔍 [RECEIVE] ReceiveMessages thread sonlandı");
+                IsConnected = false;
+            }
         }
 
         public void DisconnectFromServer()
@@ -172,7 +314,7 @@ namespace Project.Scripts.Network
         #region Mesaj İşleme ve Gönderme
 
         /// <summary>
-        /// Arka plandaki thread'den gelen mesajları ana thread'de işler ve ilgili olayları tetikler.
+        ///     Arka plandaki thread'den gelen mesajları ana thread'de işler ve ilgili olayları tetikler.
         /// </summary>
         private void ProcessMessageQueue()
         {
@@ -189,32 +331,45 @@ namespace Project.Scripts.Network
                     try
                     {
                         var gameMessage = JsonConvert.DeserializeObject<GameMessage>(rawMessage);
-                        if (gameMessage == null) continue;
+                        if (gameMessage == null) 
+                        {
+                            Debug.LogError("❌ [PROCESS] GameMessage deserialize edilemedi!");
+                            continue;
+                        }
 
                         // İçsel "Bağlantı Başarılı" mesajı
                         if ((int)gameMessage.Type == -1)
                         {
+                            Debug.Log("✅ [PROCESS] Bağlantı başarılı mesajı alındı - OnConnectedToServer tetikleniyor");
                             OnConnectedToServer?.Invoke();
                             SendJoinRequest();
                             continue;
                         }
 
-                        // Gelen mesajın tipine göre doğru DTO'ya çevir ve ilgili olayı fırlat.
+                        // Sadece önemli mesajları logla (Transform hariç)
+                        if (gameMessage.Type != MessageType.S2C_TransformUpdate)
+                        {
+                            Debug.Log($"✅ [PROCESS] Sunucudan mesaj alındı: {gameMessage.Type}");
+                        }
+                        
                         switch (gameMessage.Type)
                         {
                             case MessageType.S2C_WorldState:
                                 var worldState =
                                     JsonConvert.DeserializeObject<S2C_WorldStateData>(gameMessage.DataJson);
+                                Debug.Log($"🟢 [WORLD STATE] WorldState alındı: {worldState?.Entities?.Count ?? 0} entity");
                                 if (worldState != null) OnWorldStateReceived?.Invoke(worldState);
                                 break;
                             case MessageType.S2C_EntitySpawn:
                                 var spawnData =
                                     JsonConvert.DeserializeObject<S2C_EntitySpawnData>(gameMessage.DataJson);
+                                Debug.Log($"🟢 [ENTITY SPAWN] Entity spawn alındı: {spawnData?.Entity?.PrefabType} ID: {spawnData?.Entity?.EntityId}");
                                 if (spawnData != null) OnEntitySpawned?.Invoke(spawnData);
                                 break;
                             case MessageType.S2C_EntityDespawn:
                                 var despawnData =
                                     JsonConvert.DeserializeObject<S2C_EntityDespawnData>(gameMessage.DataJson);
+                                Debug.Log($"🟢 [ENTITY DESPAWN] Entity despawn alındı: {despawnData?.EntityId}");
                                 if (despawnData != null) OnEntityDespawned?.Invoke(despawnData);
                                 break;
                             case MessageType.S2C_TransformUpdate:
@@ -231,31 +386,48 @@ namespace Project.Scripts.Network
                                 var timestamp = JsonConvert.DeserializeObject<long>(gameMessage.DataJson);
                                 ProcessPong(timestamp);
                                 break;
+                            default:
+                                Debug.LogWarning($"❌ [PROCESS] Bilinmeyen mesaj tipi: {gameMessage.Type}");
+                                break;
                         }
                     }
                     catch (Exception e)
                     {
-                        Debug.LogError($"Mesaj işleme hatası: {e.Message} | Gelen Veri: {rawMessage}");
+                        Debug.LogError($"❌ [PROCESS] Mesaj işleme hatası: {e.Message} | Gelen Veri: {rawMessage}");
                     }
                 }
             }
         }
 
         /// <summary>
-        /// Sunucuya mesaj göndermek için genel bir metot.
+        ///     Sunucuya mesaj göndermek için genel bir metot.
         /// </summary>
         private void SendMessage(GameMessage message)
         {
             if (!IsConnected) return;
             try
             {
-                string json = JsonConvert.SerializeObject(message);
-                byte[] data = Encoding.UTF8.GetBytes(json);
-                _stream.WriteAsync(data, 0, data.Length);
+                var json = JsonConvert.SerializeObject(message);
+                var messageWithDelimiter = json + "\n"; // Server newline delimiter bekliyor
+                var data = Encoding.UTF8.GetBytes(messageWithDelimiter);
+                
+                // Sadece önemli mesajları logla (Transform hariç)
+                if (message.Type != MessageType.C2S_TransformUpdate)
+                {
+                    Debug.Log($"🔍 [SEND] {message.Type} gönderiliyor...");
+                }
+                
+                _stream.Write(data, 0, data.Length); // Synchronous write kullan
+                _stream.Flush(); // Mesajın hemen gönderilmesini sağla
+                
+                if (message.Type != MessageType.C2S_TransformUpdate)
+                {
+                    Debug.Log($"✅ [SEND] {message.Type} başarıyla gönderildi");
+                }
             }
             catch (Exception e)
             {
-                Debug.LogError($"Mesaj gönderme hatası: {e.Message}");
+                Debug.LogError($"❌ [SEND] Mesaj gönderme hatası: {e.Message}");
             }
         }
 
@@ -264,15 +436,36 @@ namespace Project.Scripts.Network
         #region Public Metotlar (İstemcinin Diğer Kısımlarından Çağrılacak)
 
         /// <summary>
-        /// Oyuna katılma isteğini, GameManager'dan aldığı güncel bilgilerle gönderir.
+        ///     Oyuna katılma isteğini, GameManager'dan aldığı güncel bilgilerle gönderir.
         /// </summary>
         public void SendJoinRequest()
         {
-            if (GameManager.Instance?.ActiveShip == null) return;
+            Debug.Log("==== SEND JOIN REQUEST ÇAĞRILDI ====");
+            
+            if (GameManager.Instance?.ActiveShip == null)
+            {
+                Debug.LogError("❌ HATA: GameManager.Instance.ActiveShip NULL! Join request gönderilemedi.");
+                Debug.LogError("➡️ Çözüm: Gemi seçim ekranından bir gemi seçin.");
+                return;
+            }
+            
+            Debug.Log($"✅ ActiveShip bulundu: {GameManager.Instance.ActiveShip.Name} (ID: {GameManager.Instance.ActiveShip.Id})");
+            
+            // JWT token'ı ApiManager'dan al
+            string authToken = ApiManager.Instance?.GetAuthToken();
+            if (string.IsNullOrEmpty(authToken))
+            {
+                Debug.LogError("❌ HATA: JWT token bulunamadı! Oyun sunucusuna katılma isteği gönderilemedi.");
+                Debug.LogError("➡️ Çözüm: Login ekranından tekrar giriş yapın.");
+                return;
+            }
+            
+            Debug.Log($"✅ JWT Token bulundu: {authToken.Length} karakter");
 
             var joinData = new C2S_JoinGameData
             {
-                SelectedShipId = GameManager.Instance.ActiveShip.Id
+                SelectedShipId = GameManager.Instance.ActiveShip.Id,
+                AuthToken = authToken  // JWT token'ı ekle
             };
 
             var message = new GameMessage
@@ -281,11 +474,13 @@ namespace Project.Scripts.Network
                 DataJson = JsonConvert.SerializeObject(joinData)
             };
 
+            Debug.Log($"✅ Oyun sunucusuna katılma isteği gönderiliyor. Ship ID: {GameManager.Instance.ActiveShip.Id}");
             SendMessage(message);
+            Debug.Log("✅ Join request gönderildi. Sunucu cevabı bekleniyor...");
         }
 
         /// <summary>
-        /// Yerel oyuncunun gemisinin transform'unu sunucuya gönderir.
+        ///     Yerel oyuncunun gemisinin transform'unu sunucuya gönderir.
         /// </summary>
         public void SendTransformUpdate(Vector3 position, Quaternion rotation, Vector3 velocity)
         {
@@ -306,8 +501,8 @@ namespace Project.Scripts.Network
         }
 
         /// <summary>
-        /// YENİ EKLENEN METOT: Oyuncunun bir aksiyon gerçekleştirdiğini sunucuya bildirir.
-        /// PlayerController tarafından çağrılır.
+        ///     YENİ EKLENEN METOT: Oyuncunun bir aksiyon gerçekleştirdiğini sunucuya bildirir.
+        ///     PlayerController tarafından çağrılır.
         /// </summary>
         /// <param name="actionData">Gerçekleştirilen aksiyonun detaylarını içeren DTO.</param>
         public void SendPlayerAction(C2S_PlayerActionData actionData)
@@ -322,6 +517,32 @@ namespace Project.Scripts.Network
 
             SendMessage(message);
         }
+
+        /// <summary>
+        ///     SMOOTH MOVEMENT: Sadece hedef pozisyonu server'a gönderir.
+        ///     Transform değil, destination sync eder - titreme önlemek için.
+        /// </summary>
+        /// <param name="destination">Geminin gideceği hedef pozisyon</param>
+        /*
+        public void SendSetDestination(Vector3 destination)
+        {
+            if (!IsConnected) return;
+
+            var destinationData = new C2S_SetDestinationData
+            {
+                TargetPosition = destination.ToNumeric()
+            };
+
+            var message = new GameMessage
+            {
+                Type = MessageType.C2S_SetDestination,
+                DataJson = JsonConvert.SerializeObject(destinationData)
+            };
+
+            SendMessage(message);
+            Debug.Log($"📡 [DESTINATION] Hedef pozisyon server'a gönderildi: {destination}");
+        }
+        */
 
         public void SendPing()
         {
@@ -339,7 +560,7 @@ namespace Project.Scripts.Network
         }
 
         /// <summary>
-        /// Sunucudan gelen pong yanıtını işler ve gecikme süresini hesaplar.
+        ///     Sunucudan gelen pong yanıtını işler ve gecikme süresini hesaplar.
         /// </summary>
         private void ProcessPong(long timestamp)
         {

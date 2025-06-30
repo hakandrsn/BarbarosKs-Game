@@ -1,6 +1,5 @@
 ﻿using UnityEditor;
 using UnityEngine;
-using Project.Scripts.Network;
 
 namespace Project.Scripts.Network.Editor
 {

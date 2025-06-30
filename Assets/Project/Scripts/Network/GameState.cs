@@ -1,12 +1,13 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Project.Scripts.Network
 {
     /// <summary>
-    /// Sunucudan gelen oyun durumu verilerini içeren sınıf
+    ///     Sunucudan gelen oyun durumu verilerini içeren sınıf
     /// </summary>
-    [System.Serializable]
+    [Serializable]
     public class GameState
     {
         // Oyundaki oyuncular listesi
@@ -22,32 +23,19 @@ namespace Project.Scripts.Network
         public string localPlayerId;
         public PlayerStats playerStats;
 
-        [System.Serializable]
-        public class PlayerStats
-        {
-            public int level;
-            public int experience;
-            public int requiredExperienceForNextLevel;
-            public int pearls;
-            public int artifacts;
-            public int gold;
-            public int victories;
-            public int defeats;
-        }
-
         /// <summary>
-        /// Yeni bir oyun durumu oluşturur
+        ///     Yeni bir oyun durumu oluşturur
         /// </summary>
         public GameState()
         {
             players = new List<PlayerData>();
-            serverTimeMs = System.DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+            serverTimeMs = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             gamePhase = "lobby";
             playerStats = new PlayerStats();
         }
 
         /// <summary>
-        /// Oyun durumu bileşenlerini Unity formatına dönüştürür
+        ///     Oyun durumu bileşenlerini Unity formatına dönüştürür
         /// </summary>
         public void ConvertToUnityFormats()
         {
@@ -69,43 +57,35 @@ namespace Project.Scripts.Network
         }
 
         /// <summary>
-        /// Yerel oyuncuyu oyuncu listesinden bulur
+        ///     Yerel oyuncuyu oyuncu listesinden bulur
         /// </summary>
         public PlayerData GetLocalPlayer()
         {
             if (string.IsNullOrEmpty(localPlayerId)) return null;
 
             foreach (var player in players)
-            {
                 if (player.id == localPlayerId)
-                {
                     return player;
-                }
-            }
 
             return null;
         }
 
         /// <summary>
-        /// Verilen ID'ye sahip oyuncuyu bulur
+        ///     Verilen ID'ye sahip oyuncuyu bulur
         /// </summary>
         public PlayerData GetPlayerById(string playerId)
         {
             if (string.IsNullOrEmpty(playerId)) return null;
 
             foreach (var player in players)
-            {
                 if (player.id == playerId)
-                {
                     return player;
-                }
-            }
 
             return null;
         }
 
         /// <summary>
-        /// Oyun durumunu JSON formatına dönüştürür
+        ///     Oyun durumunu JSON formatına dönüştürür
         /// </summary>
         public string ToJson()
         {
@@ -113,7 +93,7 @@ namespace Project.Scripts.Network
         }
 
         /// <summary>
-        /// JSON verilerinden oyun durumu oluşturur
+        ///     JSON verilerinden oyun durumu oluşturur
         /// </summary>
         public static GameState FromJson(string json)
         {
@@ -121,11 +101,24 @@ namespace Project.Scripts.Network
             {
                 return JsonUtility.FromJson<GameState>(json);
             }
-            catch (System.Exception e)
+            catch (Exception e)
             {
                 Debug.LogError($"Oyun durumu ayrıştırma hatası: {e.Message}");
                 return new GameState();
             }
+        }
+
+        [Serializable]
+        public class PlayerStats
+        {
+            public int level;
+            public int experience;
+            public int requiredExperienceForNextLevel;
+            public int pearls;
+            public int artifacts;
+            public int gold;
+            public int victories;
+            public int defeats;
         }
     }
 }

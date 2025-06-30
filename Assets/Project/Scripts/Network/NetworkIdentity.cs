@@ -3,8 +3,8 @@ using UnityEngine;
 namespace Project.Scripts.Network
 {
     /// <summary>
-    /// Sahnedeki bir ağ nesnesinin kimliğini tutar.
-    /// Bu, tıklama ile hedefleme gibi işlemler için kullanılır.
+    ///     Sahnedeki bir ağ nesnesinin kimliğini tutar.
+    ///     Bu, tıklama ile hedefleme gibi işlemler için kullanılır.
     /// </summary>
     public class NetworkIdentity : MonoBehaviour
     {

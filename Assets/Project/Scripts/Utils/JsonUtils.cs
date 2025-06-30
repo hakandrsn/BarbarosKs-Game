@@ -1,15 +1,18 @@
-﻿using UnityEngine;
-using Newtonsoft.Json.Linq; // Newtonsoft.Json kütüphanesinin projenizde olması gerekir.
+﻿using System;
+using Newtonsoft.Json.Linq;
+using UnityEngine;
+
+// Newtonsoft.Json kütüphanesinin projenizde olması gerekir.
 
 /// <summary>
-/// JSON (özellikle JArray) ve Unity tipleri (Vector3, Quaternion) arasında
-/// dönüşüm yapmak için yardımcı metotlar içeren statik bir sınıf.
+///     JSON (özellikle JArray) ve Unity tipleri (Vector3, Quaternion) arasında
+///     dönüşüm yapmak için yardımcı metotlar içeren statik bir sınıf.
 /// </summary>
 public static class JsonUtils
 {
     /// <summary>
-    /// Bir JArray'i Vector3'e dönüştürür.
-    /// Örnek JArray: [1.0, 2.5, 3.0]
+    ///     Bir JArray'i Vector3'e dönüştürür.
+    ///     Örnek JArray: [1.0, 2.5, 3.0]
     /// </summary>
     /// <param name="array">Dönüştürülecek JArray.</param>
     /// <param name="defaultValue">Eğer array geçersizse döndürülecek varsayılan değer.</param>
@@ -17,10 +20,7 @@ public static class JsonUtils
     public static Vector3 ParseVector3(JArray array, Vector3 defaultValue = default)
     {
         // JArray null veya eleman sayısı 3'ten az ise varsayılan değeri dön
-        if (array == null || array.Count < 3)
-        {
-            return defaultValue;
-        }
+        if (array == null || array.Count < 3) return defaultValue;
 
         try
         {
@@ -30,7 +30,7 @@ public static class JsonUtils
                 (float)array[2]
             );
         }
-        catch (System.Exception ex)
+        catch (Exception ex)
         {
             Debug.LogError($"Vector3 parse hatası: {ex.Message}");
             return defaultValue;
@@ -38,8 +38,8 @@ public static class JsonUtils
     }
 
     /// <summary>
-    /// Bir JArray'i Quaternion'a dönüştürür. JArray'in Euler açılarını (x, y, z) içerdiği varsayılır.
-    /// Örnek JArray: [0, 90.0, 0]
+    ///     Bir JArray'i Quaternion'a dönüştürür. JArray'in Euler açılarını (x, y, z) içerdiği varsayılır.
+    ///     Örnek JArray: [0, 90.0, 0]
     /// </summary>
     /// <param name="array">Dönüştürülecek JArray (Euler açıları).</param>
     /// <param name="defaultValue">Eğer array geçersizse döndürülecek varsayılan değer.</param>
@@ -47,16 +47,10 @@ public static class JsonUtils
     public static Quaternion ParseQuaternion(JArray array, Quaternion defaultValue = default)
     {
         // Quaternion için varsayılan değer olarak Quaternion.identity kullanmak daha mantıklıdır.
-        if (defaultValue == default)
-        {
-            defaultValue = Quaternion.identity;
-        }
+        if (defaultValue == default) defaultValue = Quaternion.identity;
 
         // JArray null veya eleman sayısı 3'ten az ise varsayılan değeri dön
-        if (array == null || array.Count < 3)
-        {
-            return defaultValue;
-        }
+        if (array == null || array.Count < 3) return defaultValue;
 
         try
         {
@@ -66,7 +60,7 @@ public static class JsonUtils
                 (float)array[2]
             );
         }
-        catch (System.Exception ex)
+        catch (Exception ex)
         {
             Debug.LogError($"Quaternion parse hatası: {ex.Message}");
             return defaultValue;

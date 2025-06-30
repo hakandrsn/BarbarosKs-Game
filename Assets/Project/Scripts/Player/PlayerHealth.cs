@@ -1,7 +1,9 @@
 ﻿using System.Collections;
+using Project.Scripts.Interfaces;
 using UnityEngine;
 using UnityEngine.Events;
-using Project.Scripts.Interfaces; // IDamageable için
+
+// IDamageable için
 
 namespace BarbarosKs.Player
 {
@@ -14,25 +16,27 @@ namespace BarbarosKs.Player
         private static readonly int Hit = Animator.StringToHash("Hit");
         private static readonly int Die1 = Animator.StringToHash("Die");
 
-        [Header("Sağlık Ayarları")]
-        [SerializeField] private int maxHealth = 100;
+        [Header("Sağlık Ayarları")] [SerializeField]
+        private int maxHealth = 100;
+
         [SerializeField] private int currentHealth;
 
-        [Header("Efekt ve Ses Ayarları")]
-        [SerializeField] private float invincibilityTime = 0.5f; // Hasar aldıktan sonra kısa süreli dokunulmazlık (efekt tekrarı için)
+        [Header("Efekt ve Ses Ayarları")] [SerializeField]
+        private float invincibilityTime = 0.5f; // Hasar aldıktan sonra kısa süreli dokunulmazlık (efekt tekrarı için)
+
         [SerializeField] private GameObject damageEffectPrefab;
         [SerializeField] private AudioClip damageSound;
         [SerializeField] private AudioClip deathSound;
 
         // Olaylar (UI gibi diğer scriptlerin dinlemesi için)
-        public UnityEvent<int, int> OnHealthChanged = new UnityEvent<int, int>();
-        public UnityEvent OnDeath = new UnityEvent();
+        public UnityEvent<int, int> OnHealthChanged = new();
+        public UnityEvent OnDeath = new();
+        private Animator _animator;
+        private AudioSource _audioSource;
+        private bool _isDead;
 
         // Özel değişkenler
-        private bool _isInvincible = false;
-        private AudioSource _audioSource;
-        private Animator _animator;
-        private bool _isDead = false;
+        private bool _isInvincible;
 
         private void Awake()
         {
@@ -47,22 +51,37 @@ namespace BarbarosKs.Player
             OnHealthChanged.Invoke(currentHealth, maxHealth);
         }
 
-        public int GetCurrentHealth() => currentHealth;
-        public int GetMaxHealth() => maxHealth;
+        // IDamageable arayüzü için gerekli metot.
+        // Bu metot, istemci tarafında anlık bir efekt yaratmak için kullanılabilir (örn: bir tuzağa basma)
+        // ama canı kalıcı olarak DEĞİŞTİRMEZ. Kalıcı değişiklik sadece sunucudan gelen veriyle olur.
+        public void TakeDamage(int damage)
+        {
+            if (_isInvincible || _isDead) return;
+
+            PlayDamageEffects();
+            StartCoroutine(InvincibilityRoutine());
+        }
+
+        public int GetCurrentHealth()
+        {
+            return currentHealth;
+        }
+
+        public int GetMaxHealth()
+        {
+            return maxHealth;
+        }
 
         /// <summary>
-        /// Sunucudan gelen can verisiyle bu karakterin durumunu günceller.
-        /// Bu metot, NetworkObjectSpawner veya benzeri bir yönetici tarafından çağrılmalıdır.
+        ///     Sunucudan gelen can verisiyle bu karakterin durumunu günceller.
+        ///     Bu metot, NetworkObjectSpawner veya benzeri bir yönetici tarafından çağrılmalıdır.
         /// </summary>
         public void UpdateHealthFromServer(int newCurrentHealth)
         {
             if (_isDead) return;
 
             // Eğer canımız azaldıysa hasar efektlerini, arttıysa iyileşme efektlerini oynatabiliriz.
-            if (newCurrentHealth < currentHealth)
-            {
-                PlayDamageEffects();
-            }
+            if (newCurrentHealth < currentHealth) PlayDamageEffects();
 
             currentHealth = Mathf.Clamp(newCurrentHealth, 0, maxHealth);
 
@@ -70,73 +89,47 @@ namespace BarbarosKs.Player
             OnHealthChanged.Invoke(currentHealth, maxHealth);
 
             // Sunucudan gelen veriye göre ölüm kontrolü
-            if (currentHealth <= 0)
-            {
-                Die();
-            }
-        }
-
-        // IDamageable arayüzü için gerekli metot.
-        // Bu metot, istemci tarafında anlık bir efekt yaratmak için kullanılabilir (örn: bir tuzağa basma)
-        // ama canı kalıcı olarak DEĞİŞTİRMEZ. Kalıcı değişiklik sadece sunucudan gelen veriyle olur.
-        public void TakeDamage(int damage)
-        {
-            if (_isInvincible || _isDead) return;
-            
-            PlayDamageEffects();
-            StartCoroutine(InvincibilityRoutine());
+            if (currentHealth <= 0) Die();
         }
 
         /// <summary>
-        /// Hasar aldığında çalışacak olan ses ve görsel efektleri oynatır.
+        ///     Hasar aldığında çalışacak olan ses ve görsel efektleri oynatır.
         /// </summary>
         private void PlayDamageEffects()
         {
             if (_isInvincible) return;
 
-            if (damageSound != null && _audioSource != null)
-            {
-                _audioSource.PlayOneShot(damageSound);
-            }
+            if (damageSound != null && _audioSource != null) _audioSource.PlayOneShot(damageSound);
 
             if (damageEffectPrefab)
             {
-                GameObject effect = Instantiate(damageEffectPrefab, transform.position, Quaternion.identity);
+                var effect = Instantiate(damageEffectPrefab, transform.position, Quaternion.identity);
                 Destroy(effect, 2f);
             }
 
-            if (_animator)
-            {
-                _animator.SetTrigger(Hit);
-            }
+            if (_animator) _animator.SetTrigger(Hit);
         }
 
         /// <summary>
-        /// Karakterin canı sıfıra ulaştığında çalışır.
+        ///     Karakterin canı sıfıra ulaştığında çalışır.
         /// </summary>
         private void Die()
         {
             if (_isDead) return;
             _isDead = true;
 
-            if (deathSound != null && _audioSource != null)
-            {
-                _audioSource.PlayOneShot(deathSound);
-            }
+            if (deathSound != null && _audioSource != null) _audioSource.PlayOneShot(deathSound);
 
-            if (_animator != null)
-            {
-                _animator.SetTrigger(Die1);
-            }
+            if (_animator != null) _animator.SetTrigger(Die1);
 
             OnDeath.Invoke();
-            
+
             // Bu script artık ölüm mesajı GÖNDERMEZ.
             // Sadece sunucudan gelen "canın sıfır" bilgisine göre görsel olarak ölür.
         }
 
         /// <summary>
-        /// Kısa süreli hasar almazlık sağlar (görsel/ses efektlerinin üst üste binmemesi için).
+        ///     Kısa süreli hasar almazlık sağlar (görsel/ses efektlerinin üst üste binmemesi için).
         /// </summary>
         private IEnumerator InvincibilityRoutine()
         {

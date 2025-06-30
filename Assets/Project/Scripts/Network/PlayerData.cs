@@ -4,9 +4,9 @@ using UnityEngine;
 namespace Project.Scripts.Network
 {
     /// <summary>
-    /// Oyuncu verileri sınıfı
+    ///     Oyuncu verileri sınıfı
     /// </summary>
-    [System.Serializable]
+    [Serializable]
     public class PlayerData
     {
         // Oyuncu tanımlama
@@ -37,7 +37,7 @@ namespace Project.Scripts.Network
         public PlayerStats stats;
 
         /// <summary>
-        /// Yeni bir oyuncu verisi oluşturur
+        ///     Yeni bir oyuncu verisi oluşturur
         /// </summary>
         public PlayerData()
         {
@@ -57,7 +57,7 @@ namespace Project.Scripts.Network
         }
 
         /// <summary>
-        /// ID ile yeni bir oyuncu verisi oluşturur
+        ///     ID ile yeni bir oyuncu verisi oluşturur
         /// </summary>
         public PlayerData(string playerId, string playerName = null)
         {
@@ -77,7 +77,7 @@ namespace Project.Scripts.Network
         }
 
         /// <summary>
-        /// Oyuncu verilerini başka bir oyuncudan kopyalar
+        ///     Oyuncu verilerini başka bir oyuncudan kopyalar
         /// </summary>
         public void CopyFrom(PlayerData other)
         {
@@ -106,26 +106,20 @@ namespace Project.Scripts.Network
             // Gemi verilerini kopyala
             if (other.activeShip != null)
             {
-                if (this.activeShip == null)
-                {
-                    this.activeShip = new ShipData();
-                }
-                this.activeShip.CopyFrom(other.activeShip);
+                if (activeShip == null) activeShip = new ShipData();
+                activeShip.CopyFrom(other.activeShip);
             }
 
             // İstatistikleri kopyala
             if (other.stats != null)
             {
-                if (this.stats == null)
-                {
-                    this.stats = new PlayerStats();
-                }
-                this.stats.CopyFrom(other.stats);
+                if (stats == null) stats = new PlayerStats();
+                stats.CopyFrom(other.stats);
             }
         }
 
         /// <summary>
-        /// Oyuncu verilerini JSON formatına dönüştürür
+        ///     Oyuncu verilerini JSON formatına dönüştürür
         /// </summary>
         public string ToJson()
         {
@@ -133,7 +127,7 @@ namespace Project.Scripts.Network
         }
 
         /// <summary>
-        /// JSON verilerinden oyuncu verisi oluşturur
+        ///     JSON verilerinden oyuncu verisi oluşturur
         /// </summary>
         public static PlayerData FromJson(string json)
         {
@@ -149,7 +143,7 @@ namespace Project.Scripts.Network
         }
 
         /// <summary>
-        /// Gemi verilerini içeren sınıf
+        ///     Gemi verilerini içeren sınıf
         /// </summary>
         [Serializable]
         public class ShipData
@@ -170,35 +164,35 @@ namespace Project.Scripts.Network
             public WeaponData[] weapons;
 
             /// <summary>
-            /// Gemi verilerini başka bir gemiden kopyalar
+            ///     Gemi verilerini başka bir gemiden kopyalar
             /// </summary>
             public void CopyFrom(ShipData other)
             {
                 if (other == null) return;
 
-                this.id = other.id;
-                this.name = other.name;
-                this.level = other.level;
-                this.durability = other.durability;
-                this.maxDurability = other.maxDurability;
-                this.speed = other.speed;
-                this.turnRate = other.turnRate;
-                this.fireRate = other.fireRate;
+                id = other.id;
+                name = other.name;
+                level = other.level;
+                durability = other.durability;
+                maxDurability = other.maxDurability;
+                speed = other.speed;
+                turnRate = other.turnRate;
+                fireRate = other.fireRate;
 
                 // Silah verilerini kopyala
                 if (other.weapons != null && other.weapons.Length > 0)
                 {
-                    this.weapons = new WeaponData[other.weapons.Length];
-                    for (int i = 0; i < other.weapons.Length; i++)
+                    weapons = new WeaponData[other.weapons.Length];
+                    for (var i = 0; i < other.weapons.Length; i++)
                     {
-                        this.weapons[i] = new WeaponData();
-                        this.weapons[i].CopyFrom(other.weapons[i]);
+                        weapons[i] = new WeaponData();
+                        weapons[i].CopyFrom(other.weapons[i]);
                     }
                 }
             }
 
             /// <summary>
-            /// Silah verilerini içeren sınıf
+            ///     Silah verilerini içeren sınıf
             /// </summary>
             [Serializable]
             public class WeaponData
@@ -211,24 +205,24 @@ namespace Project.Scripts.Network
                 public bool isActive;
 
                 /// <summary>
-                /// Silah verilerini başka bir silahtan kopyalar
+                ///     Silah verilerini başka bir silahtan kopyalar
                 /// </summary>
                 public void CopyFrom(WeaponData other)
                 {
                     if (other == null) return;
 
-                    this.id = other.id;
-                    this.type = other.type;
-                    this.damage = other.damage;
-                    this.cooldown = other.cooldown;
-                    this.lastFiredTime = other.lastFiredTime;
-                    this.isActive = other.isActive;
+                    id = other.id;
+                    type = other.type;
+                    damage = other.damage;
+                    cooldown = other.cooldown;
+                    lastFiredTime = other.lastFiredTime;
+                    isActive = other.isActive;
                 }
             }
         }
 
         /// <summary>
-        /// Oyuncu istatistiklerini içeren sınıf
+        ///     Oyuncu istatistiklerini içeren sınıf
         /// </summary>
         [Serializable]
         public class PlayerStats
@@ -243,7 +237,7 @@ namespace Project.Scripts.Network
             public int defeats;
 
             /// <summary>
-            /// Yeni bir istatistik nesnesi oluşturur
+            ///     Yeni bir istatistik nesnesi oluşturur
             /// </summary>
             public PlayerStats()
             {
@@ -258,20 +252,20 @@ namespace Project.Scripts.Network
             }
 
             /// <summary>
-            /// İstatistikleri başka bir istatistik nesnesinden kopyalar
+            ///     İstatistikleri başka bir istatistik nesnesinden kopyalar
             /// </summary>
             public void CopyFrom(PlayerStats other)
             {
                 if (other == null) return;
 
-                this.level = other.level;
-                this.experience = other.experience;
-                this.requiredExperienceForNextLevel = other.requiredExperienceForNextLevel;
-                this.pearls = other.pearls;
-                this.artifacts = other.artifacts;
-                this.gold = other.gold;
-                this.victories = other.victories;
-                this.defeats = other.defeats;
+                level = other.level;
+                experience = other.experience;
+                requiredExperienceForNextLevel = other.requiredExperienceForNextLevel;
+                pearls = other.pearls;
+                artifacts = other.artifacts;
+                gold = other.gold;
+                victories = other.victories;
+                defeats = other.defeats;
             }
         }
     }

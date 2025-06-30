@@ -112,7 +112,7 @@ Transform:
   m_GameObject: {fileID: 1278583864233927636}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: -0.00381, z: 0.00408}
+  m_LocalPosition: {x: -0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -133,6 +133,7 @@ GameObject:
   - component: {fileID: 7003516560695206063}
   - component: {fileID: 6579369387907115388}
   - component: {fileID: 466792285371457956}
+  - component: {fileID: 159334459691750247}
   m_Layer: 0
   m_Name: LocalPlayer_Prefab
   m_TagString: Player
@@ -353,9 +354,52 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   moveSpeed: 10
-  maxRotationTime: 1
-  minRotationTime: 0.3
+  rotationSpeed: 540
   sharpTurnAngleThreshold: 120
   networkSyncInterval: 0.1
   attackCooldown: 1
   attackRange: 20
+  selectableTargets:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  targetSelectionTimeout: 30
+--- !u!114 &159334459691750247
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4744233969276230312}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 61d51cb643ed7b1409d4aa322c3ac0ad, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  availableWeapons:
+  - weaponName: Light cannon
+    weaponPrefab: {fileID: 0}
+    weaponHolder: {fileID: 0}
+    damage: 25
+    attackSpeed: 10
+    range: 30
+    isRanged: 1
+    projectilePrefab: {fileID: 7812893202895217500, guid: 574a2a5ff582ab04a91b2eee06be779c, type: 3}
+    projectileSpeed: 40
+    attackSound: {fileID: 0}
+    attackEffect: {fileID: 0}
+  - weaponName: Heavy cannon
+    weaponPrefab: {fileID: 0}
+    weaponHolder: {fileID: 0}
+    damage: 35
+    attackSpeed: 12
+    range: 25
+    isRanged: 1
+    projectilePrefab: {fileID: 5841565649136859007, guid: 73b6d163a8595b845a235d1eacbe25cb, type: 3}
+    projectileSpeed: 25
+    attackSound: {fileID: 0}
+    attackEffect: {fileID: 0}
+  currentWeaponIndex: 0
+  projectileSpawnPoint: {fileID: 8362774242671654589}
+  targetLayers:
+    serializedVersion: 2
+    m_Bits: 0

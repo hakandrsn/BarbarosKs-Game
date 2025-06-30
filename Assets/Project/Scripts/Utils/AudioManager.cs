@@ -1,44 +1,32 @@
-﻿using System.Collections;
-using System.Collections.Generic;
+﻿using System;
+using System.Collections;
 using UnityEngine;
 using UnityEngine.Audio;
+using Random = UnityEngine.Random;
 
 namespace BarbarosKs.Utils
 {
     public class AudioManager : MonoBehaviour
     {
-        [System.Serializable]
-        public class Sound
-        {
-            public string name;
-            public AudioClip clip;
-            [Range(0f, 1f)]
-            public float volume = 1f;
-            [Range(0.1f, 3f)]
-            public float pitch = 1f;
-            public bool loop = false;
+        [Header("Ses Ayarları")] [SerializeField]
+        private Sound[] sounds;
 
-            [HideInInspector]
-            public AudioSource source;
-        }
-
-        [Header("Ses Ayarları")]
-        [SerializeField] private Sound[] sounds;
         [SerializeField] private AudioMixerGroup musicMixerGroup;
         [SerializeField] private AudioMixerGroup sfxMixerGroup;
 
-        [Header("Müzik Ayarları")]
-        [SerializeField] private string[] ambientMusicTracks;
+        [Header("Müzik Ayarları")] [SerializeField]
+        private string[] ambientMusicTracks;
+
         [SerializeField] private string[] combatMusicTracks;
         [SerializeField] private string[] menuMusicTracks;
         [SerializeField] private float musicFadeDuration = 2f;
 
+        private string currentMusicTrack;
+        private bool inCombat;
+        private Coroutine musicFadeCoroutine;
+
         // Singleton örneği
         public static AudioManager Instance { get; private set; }
-
-        private string currentMusicTrack;
-        private bool inCombat = false;
-        private Coroutine musicFadeCoroutine;
 
         private void Awake()
         {
@@ -55,7 +43,7 @@ namespace BarbarosKs.Utils
             }
 
             // Tüm ses objelerini oluştur
-            foreach (Sound s in sounds)
+            foreach (var s in sounds)
             {
                 s.source = gameObject.AddComponent<AudioSource>();
                 s.source.clip = s.clip;
@@ -65,13 +53,9 @@ namespace BarbarosKs.Utils
 
                 // Müzik veya efekt mixer grubuna ata
                 if (s.name.StartsWith("Music"))
-                {
                     s.source.outputAudioMixerGroup = musicMixerGroup;
-                }
                 else
-                {
                     s.source.outputAudioMixerGroup = sfxMixerGroup;
-                }
             }
         }
 
@@ -83,7 +67,7 @@ namespace BarbarosKs.Utils
 
         public void Play(string soundName)
         {
-            Sound s = GetSound(soundName);
+            var s = GetSound(soundName);
             if (s == null)
             {
                 Debug.LogWarning("Ses bulunamadı: " + soundName);
@@ -95,7 +79,7 @@ namespace BarbarosKs.Utils
 
         public void Stop(string soundName)
         {
-            Sound s = GetSound(soundName);
+            var s = GetSound(soundName);
             if (s == null)
             {
                 Debug.LogWarning("Ses bulunamadı: " + soundName);
@@ -112,15 +96,11 @@ namespace BarbarosKs.Utils
             inCombat = combat;
 
             if (inCombat)
-            {
                 // Savaş müziğine geç
                 FadeToMusic(GetRandomTrack(combatMusicTracks));
-            }
             else
-            {
                 // Ortam müziğine geri dön
                 FadeToMusic(GetRandomTrack(ambientMusicTracks));
-            }
         }
 
         public void PlayMenuMusic()
@@ -132,7 +112,7 @@ namespace BarbarosKs.Utils
         {
             if (tracks == null || tracks.Length == 0) return;
 
-            string trackName = GetRandomTrack(tracks);
+            var trackName = GetRandomTrack(tracks);
             FadeToMusic(trackName);
         }
 
@@ -148,10 +128,7 @@ namespace BarbarosKs.Utils
             if (string.IsNullOrEmpty(newTrackName) || newTrackName == currentMusicTrack) return;
 
             // Müzik geçişini başlat
-            if (musicFadeCoroutine != null)
-            {
-                StopCoroutine(musicFadeCoroutine);
-            }
+            if (musicFadeCoroutine != null) StopCoroutine(musicFadeCoroutine);
 
             musicFadeCoroutine = StartCoroutine(FadeMusicTrack(currentMusicTrack, newTrackName));
             currentMusicTrack = newTrackName;
@@ -160,12 +137,9 @@ namespace BarbarosKs.Utils
         private IEnumerator FadeMusicTrack(string oldTrack, string newTrack)
         {
             Sound oldSound = null;
-            Sound newSound = GetSound(newTrack);
+            var newSound = GetSound(newTrack);
 
-            if (!string.IsNullOrEmpty(oldTrack))
-            {
-                oldSound = GetSound(oldTrack);
-            }
+            if (!string.IsNullOrEmpty(oldTrack)) oldSound = GetSound(oldTrack);
 
             // Yeni parçayı sıfır ses seviyesiyle başlat
             if (newSound != null)
@@ -175,25 +149,19 @@ namespace BarbarosKs.Utils
             }
 
             float timer = 0;
-            float oldVolume = oldSound != null ? oldSound.volume : 0;
-            float newVolume = newSound != null ? newSound.volume : 0;
+            var oldVolume = oldSound != null ? oldSound.volume : 0;
+            var newVolume = newSound != null ? newSound.volume : 0;
 
             while (timer < musicFadeDuration)
             {
                 timer += Time.deltaTime;
-                float t = timer / musicFadeDuration;
+                var t = timer / musicFadeDuration;
 
                 // Eski parçayı kıs
-                if (oldSound != null)
-                {
-                    oldSound.source.volume = Mathf.Lerp(oldVolume, 0, t);
-                }
+                if (oldSound != null) oldSound.source.volume = Mathf.Lerp(oldVolume, 0, t);
 
                 // Yeni parçayı yükselt
-                if (newSound != null)
-                {
-                    newSound.source.volume = Mathf.Lerp(0, newVolume, t);
-                }
+                if (newSound != null) newSound.source.volume = Mathf.Lerp(0, newVolume, t);
 
                 yield return null;
             }
@@ -210,24 +178,33 @@ namespace BarbarosKs.Utils
 
         private Sound GetSound(string soundName)
         {
-            return System.Array.Find(sounds, sound => sound.name == soundName);
+            return Array.Find(sounds, sound => sound.name == soundName);
         }
 
         // Ses ayarlarını değiştirme
         public void SetMusicVolume(float volume)
         {
-            if (musicMixerGroup != null)
-            {
-                musicMixerGroup.audioMixer.SetFloat("MusicVolume", Mathf.Log10(volume) * 20);
-            }
+            if (musicMixerGroup != null) musicMixerGroup.audioMixer.SetFloat("MusicVolume", Mathf.Log10(volume) * 20);
         }
 
         public void SetSFXVolume(float volume)
         {
-            if (sfxMixerGroup != null)
-            {
-                sfxMixerGroup.audioMixer.SetFloat("SFXVolume", Mathf.Log10(volume) * 20);
-            }
+            if (sfxMixerGroup != null) sfxMixerGroup.audioMixer.SetFloat("SFXVolume", Mathf.Log10(volume) * 20);
+        }
+
+        [Serializable]
+        public class Sound
+        {
+            public string name;
+            public AudioClip clip;
+
+            [Range(0f, 1f)] public float volume = 1f;
+
+            [Range(0.1f, 3f)] public float pitch = 1f;
+
+            public bool loop;
+
+            [HideInInspector] public AudioSource source;
         }
     }
 }
