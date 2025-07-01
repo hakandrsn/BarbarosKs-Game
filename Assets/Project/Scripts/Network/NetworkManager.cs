@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading;
+using BarbarosKs.Player;
 using Newtonsoft.Json;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -158,6 +159,11 @@ namespace Project.Scripts.Network
         ///     YENİ: Oyuncunun gönderdiği aksiyon başarısız olduğunda tetiklenir.
         /// </summary>
         public event Action<S2C_ActionFailedData> OnActionFailed;
+
+        /// <summary>
+        ///     Sunucudan gülle spawn mesajı geldiğinde tetiklenir.
+        /// </summary>
+        public event Action<S2C_ProjectileSpawnData> OnProjectileSpawn;
 
         #endregion
 
@@ -414,6 +420,11 @@ namespace Project.Scripts.Network
                                 Debug.Log($"❌ [ACTION FAILED] Aksiyon başarısız: {actionFailedData?.Reason}");
                                 if (actionFailedData != null) OnActionFailed?.Invoke(actionFailedData);
                                 break;
+                            case MessageType.S2C_ProjectileSpawn:
+                                var projectileSpawnData = JsonConvert.DeserializeObject<S2C_ProjectileSpawnData>(gameMessage.DataJson);
+                                Debug.Log($"🚀 [PROJECTILE SPAWN] Gülle spawn alındı: {projectileSpawnData?.ProjectileType} ID: {projectileSpawnData?.ProjectileId}");
+                                if (projectileSpawnData != null) OnProjectileSpawn?.Invoke(projectileSpawnData);
+                                break;
                             default:
                                 Debug.LogWarning($"❌ [PROCESS] Bilinmeyen mesaj tipi: {gameMessage.Type}");
                                 break;
@@ -597,6 +608,17 @@ namespace Project.Scripts.Network
             // Round Trip Time (RTT) hesapla (milisaniye cinsinden)
             LastPingTime = (Time.time - sendTime) * 1000f;
             _pingTimestamps.Remove(timestamp);
+        }
+
+        /// <summary>
+        ///     Local player'ı bulur (UI sistemleri için)
+        /// </summary>
+        [Obsolete("Obsolete")]
+        private PlayerController FindLocalPlayer()
+        {
+            // PlayerController'lar arasında local player'ı bul
+            var players = FindObjectsOfType<PlayerController>();
+            return players.FirstOrDefault(player => player.GetIsLocalPlayer());
         }
 
         #endregion

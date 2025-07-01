@@ -71,6 +71,16 @@ namespace BarbarosKs.Player
         private const float ROTATION_THRESHOLD = 2f; // 2 derece rotasyon gerekiyor
         private const float VELOCITY_THRESHOLD = 0.1f; // Hız değişimi eşiği
 
+        // Attack Button Controller referansı
+        private BarbarosKs.UI.AttackButtonController _attackButtonController;
+        
+        // Events
+        public static System.Action<PlayerController> OnLocalPlayerSpawned;
+        
+        // Attack System
+        private float _currentAttackCooldown = 2f; // Varsayılan cooldown
+        private float _lastAttackTime = 0f; // Son ateş etme zamanı
+
         private void Awake()
         {
             Debug.Log("🎮 [PLAYER] PlayerController Awake başladı");
@@ -92,6 +102,29 @@ namespace BarbarosKs.Player
             Debug.Log("🎮 [PLAYER] Input Actions event'leri bağlandı");
         }
 
+        private void Start()
+        {
+            _rb = GetComponent<Rigidbody>();
+
+            _mainCamera = GameObject.FindGameObjectWithTag("MainCamera").GetComponent<Camera>();
+            _navMeshAgent = GetComponent<NavMeshAgent>();
+
+            // Weapon System'i başlat
+            _weaponSystem = GetComponent<WeaponSystem>();
+            if (_weaponSystem == null)
+            {
+                Debug.LogError("❌ WeaponSystem bulunamadı! PlayerController'a WeaponSystem eklemeyi unutmayın!");
+            }
+
+            _health = GetComponent<PlayerHealth>();
+            if (_health == null)
+            {
+                Debug.LogError("❌ PlayerHealth bulunamadı! PlayerController'a PlayerHealth eklemeyi unutmayın!");
+            }
+
+            Debug.Log("🚀 PlayerController başlatıldı!");
+        }
+
         private void Update()
         {
             if (!_isLocalPlayer) return;
@@ -102,6 +135,20 @@ namespace BarbarosKs.Player
             
             // Test tuşları (geliştirme için)
             HandleTestKeys();
+            
+            // AttackButtonController'ı ilk kez bul
+            if (_attackButtonController == null)
+            {
+                _attackButtonController = FindObjectOfType<BarbarosKs.UI.AttackButtonController>();
+                if (_attackButtonController != null)
+                {
+                    Debug.Log("✅ [PLAYER] AttackButtonController bulundu ve bağlandı!");
+                }
+                else
+                {
+                    Debug.Log("⚠️ [PLAYER] AttackButtonController bulunamadı!");
+                }
+            }
         }
         
         private void CheckTargetTimeout()
@@ -248,9 +295,6 @@ namespace BarbarosKs.Player
             }
         }
 
-        // Statik Olay
-        public static event Action<PlayerController> OnLocalPlayerSpawned;
-
         #region Input (Girdi) ve Hedefleme
 
         public void OnSetDestination(InputAction.CallbackContext context)
@@ -320,6 +364,54 @@ namespace BarbarosKs.Player
 
             Debug.Log("🔫 [FIRE] Space tuşuna basıldı!");
 
+            // ✅ Eğer AttackButtonController varsa, otomatik ateş sistemini kullan
+            if (_attackButtonController != null)
+            {
+                // Otomatik ateş aktifse durdur, değilse başlat
+                if (_attackButtonController.IsAutoAttacking())
+                {
+                    Debug.Log("🛑 [FIRE] Space ile otomatik ateş durduruluyor");
+                    _attackButtonController.StopAutoAttack();
+                }
+                else
+                {
+                    Debug.Log("🔫 [FIRE] Space ile otomatik ateş başlatılıyor");
+                    _attackButtonController.StartAutoAttack();
+                }
+            }
+            else
+            {
+                // Fallback: AttackButtonController yoksa tek seferlik ateş
+                Debug.Log("⚠️ [FIRE] AttackButtonController bulunamadı, tek seferlik ateş");
+                PerformFireAction();
+            }
+        }
+
+        /// <summary>
+        /// AttackButtonController için parametresiz ateş methodu
+        /// </summary>
+        public void FireAtTarget()
+        {
+            if (!_isLocalPlayer) return;
+            
+            Debug.Log("🔫 [FIRE] Buton ile ateş emri alındı!");
+            PerformFireAction();
+        }
+
+        /// <summary>
+        /// Gerçek ateş işlemini yapar (hem tuş hem buton için ortak)
+        /// </summary>
+        private void PerformFireAction()
+        {
+            // ✅ COOLDOWN KONTROLü - EN ÖNEMLİ KURAL!
+            float timeSinceLastAttack = Time.time - _lastAttackTime;
+            if (timeSinceLastAttack < _currentAttackCooldown)
+            {
+                float remainingCooldown = _currentAttackCooldown - timeSinceLastAttack;
+                Debug.Log($"❌ [FIRE] Cooldown aktif! {remainingCooldown:F1}s kaldı");
+                return;
+            }
+
             // Hedef seçili mi?
             if (_selectedTarget == null)
             {
@@ -345,10 +437,15 @@ namespace BarbarosKs.Player
             Debug.Log($"🎯 [FIRE] Hedefe mesafe: {distance:F1}m - Sunucuya ateş isteği gönderiliyor...");
 
             // ✅ YENİ: Sunucuya ateş etme isteği gönder (lokal ateş etme YOK!)
-            string targetId = _selectedTarget.name; // Veya daha iyi bir ID sistemi kullanabilirsiniz
+            // NetworkIdentity varsa EntityId kullan, yoksa GameObject name kullan
+            string targetId = !string.IsNullOrEmpty(_currentTargetId) ? _currentTargetId : _selectedTarget.name;
             RequestAttack(targetId);
             
-            Debug.Log($"📡 [FIRE] Sunucuya ateş isteği gönderildi! Hedef: {_selectedTarget.name}");
+            // ✅ ÖNEMLİ: İsteği gönderdikten sonra last attack time'ı güncelle
+            // Böylece sunucu onaylanana kadar spam engellenir
+            _lastAttackTime = Time.time;
+            
+            Debug.Log($"📡 [FIRE] Sunucuya ateş isteği gönderildi! Hedef: {_selectedTarget.name}, ID: {targetId}");
             Debug.Log("⏳ [FIRE] Sunucu onayı bekleniyor... Gerçek ateş efekti sunucu onayında çalışacak.");
 
             // Hedef etkileşimi hemen yenile (kullanıcı feedback için)
@@ -545,37 +642,45 @@ namespace BarbarosKs.Player
         {
             Debug.Log("🔫 [FIRE SUCCESS] Sunucu ateş etmeyi onayladı! Efekt çalıştırılıyor...");
             
-            // Hedef varsa ateş et
-            if (_selectedTarget != null && _weaponSystem != null)
+            // ⚠️ WeaponSystem.Attack çağrısı kaldırıldı - gülleler artık network'ten spawn ediliyor
+            // Sadece animasyon ve ses efektleri çalıştır
+            
+            // Animasyonu tetikle
+            if (_animator != null)
             {
-                // WeaponSystem ile gerçek ateş efektini çalıştır
-                _weaponSystem.Attack(_selectedTarget.transform);
-                Debug.Log($"🚀 [FIRE SUCCESS] Ateş efekti çalıştırıldı! Hedef: {_selectedTarget.name}");
-                
-                // Animasyonu tetikle
-                if (_animator != null)
-                {
-                    _animator.SetTrigger(_attackTriggerHash);
-                }
-                
-                // Ateş etme de etkileşim sayılır
-                RefreshTargetInteraction();
-                
-                // Sunucudan gelen damage bilgisini logla
-                try
-                {
-                    int damage = actionResponse?["Damage"]?.ToObject<int>() ?? 0;
-                    float cooldown = actionResponse?["Cooldown"]?.ToObject<float>() ?? 0f;
-                    Debug.Log($"💥 [FIRE SUCCESS] Damage: {damage}, Cooldown: {cooldown}s");
-                }
-                catch
-                {
-                    Debug.Log("💥 [FIRE SUCCESS] Damage bilgisi parse edilemedi");
-                }
+                _animator.SetTrigger(_attackTriggerHash);
+                Debug.Log("🎬 [FIRE SUCCESS] Attack animasyonu tetiklendi");
             }
-            else
+            
+            // Ateş etme de etkileşim sayılır
+            RefreshTargetInteraction();
+            
+            // Sunucudan gelen damage ve cooldown bilgisini logla ve işle
+            try
             {
-                Debug.LogWarning("❌ [FIRE SUCCESS] Hedef yok veya WeaponSystem yok!");
+                int damage = actionResponse?["Damage"]?.ToObject<int>() ?? 0;
+                float cooldown = actionResponse?["Cooldown"]?.ToObject<float>() ?? 0f;
+                float attackRate = actionResponse?["AttackRate"]?.ToObject<float>() ?? 0f;
+                
+                Debug.Log($"💥 [FIRE SUCCESS] Damage: {damage}, Cooldown: {cooldown}s, AttackRate: {attackRate}s");
+                
+                // ✅ Sunucudan gelen cooldown bilgisini güncelle
+                if (cooldown > 0f)
+                {
+                    UpdateAttackCooldown(cooldown);
+                    Debug.Log($"⏰ [FIRE SUCCESS] Cooldown güncellendi: {cooldown}s");
+                }
+                else if (attackRate > 0f)
+                {
+                    UpdateAttackCooldown(attackRate);
+                    Debug.Log($"⏰ [FIRE SUCCESS] AttackRate'den cooldown güncellendi: {attackRate}s");
+                }
+                
+                Debug.Log("🌐 [FIRE SUCCESS] Gülle ProjectileManager tarafından network'ten spawn edilecek");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"⚠️ [FIRE SUCCESS] Cooldown bilgisi parse edilemedi: {ex.Message}");
             }
         }
 
@@ -640,6 +745,12 @@ namespace BarbarosKs.Player
             if (_selectedTarget.TryGetComponent<NetworkIdentity>(out var networkId))
             {
                 _currentTargetId = networkId.EntityId;
+                Debug.Log($"🔍 [TARGET] NetworkIdentity bulundu! EntityId: {_currentTargetId}");
+            }
+            else
+            {
+                _currentTargetId = string.Empty;
+                Debug.Log($"⚠️ [TARGET] NetworkIdentity bulunamadı! GameObject name fallback kullanılacak: {_selectedTarget.name}");
             }
         }
 
@@ -690,7 +801,7 @@ namespace BarbarosKs.Player
         }
 
         /// <summary>
-        /// Debug için: Mevcut hedefi döndürür.
+        /// Seçili hedefi döndürür (AttackButtonController için)
         /// </summary>
         public GameObject GetSelectedTarget()
         {
@@ -897,5 +1008,85 @@ namespace BarbarosKs.Player
 
         #endregion
 
+        #region Public API for UI and Network
+
+        /// <summary>
+        /// Network'ten gelen attack cooldown bilgisini günceller
+        /// </summary>
+        public void UpdateAttackCooldown(float newCooldown)
+        {
+            _currentAttackCooldown = newCooldown;
+            Debug.Log($"⏰ [PLAYER] Attack cooldown güncellendi: {newCooldown}s");
+        }
+
+        /// <summary>
+        /// Sunucu onayından sonra gerçek ateş efektini çalıştırır
+        /// </summary>
+        public void ExecuteFireEffect()
+        {
+            if (!_isLocalPlayer) return;
+            
+            Debug.Log("🎯 [PLAYER] Sunucu onayı alındı, ateş efekti çalıştırılıyor!");
+            
+            // WeaponSystem var mı kontrol et
+            if (_weaponSystem == null)
+            {
+                Debug.LogError("❌ [FIRE EFFECT] WeaponSystem bulunamadı!");
+                return;
+            }
+            
+            // Hedef var mı kontrol et
+            if (_selectedTarget == null)
+            {
+                Debug.LogWarning("⚠️ [FIRE EFFECT] Hedef bulunamadı, ateş efekti iptal edildi!");
+                return;
+            }
+            
+            // WeaponSystem'den ateş et
+            _weaponSystem.Attack(_selectedTarget.transform);
+            Debug.Log($"✅ [FIRE EFFECT] Ateş efekti başarıyla çalıştırıldı! Hedef: {_selectedTarget.name}");
+        }
+
+        /// <summary>
+        /// Mevcut attack cooldown süresini döndürür
+        /// </summary>
+        public float GetAttackCooldown()
+        {
+            return _currentAttackCooldown;
+        }
+
+        /// <summary>
+        /// Şu anda ateş edebilir mi kontrol eder (cooldown dahil)
+        /// </summary>
+        public bool CanAttackNow()
+        {
+            // Cooldown kontrolü
+            float timeSinceLastAttack = Time.time - _lastAttackTime;
+            bool cooldownReady = timeSinceLastAttack >= _currentAttackCooldown;
+            
+            Debug.Log($"🔍 [CAN ATTACK] Son ateş: {timeSinceLastAttack:F1}s önce, Cooldown: {_currentAttackCooldown:F1}s, Hazır: {cooldownReady}");
+            
+            return cooldownReady;
+        }
+
+        /// <summary>
+        /// Kalan cooldown süresini döndürür
+        /// </summary>
+        public float GetRemainingCooldown()
+        {
+            float timeSinceLastAttack = Time.time - _lastAttackTime;
+            float remaining = _currentAttackCooldown - timeSinceLastAttack;
+            return Mathf.Max(0f, remaining);
+        }
+
+        /// <summary>
+        /// Local player kontrolü
+        /// </summary>
+        public bool GetIsLocalPlayer()
+        {
+            return _isLocalPlayer;
+        }
+
+        #endregion
     }
 }

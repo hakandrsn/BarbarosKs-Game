@@ -184,6 +184,18 @@ namespace BarbarosKs.Combat
         }
 
         /// <summary>
+        /// Network'ten gelen verilerle projektili initialize eder
+        /// </summary>
+        public void InitializeFromNetwork(int newDamage, Transform target, float networkFlightTime)
+        {
+            damage = newDamage;
+            specificTarget = target;
+            flightTime = networkFlightTime; // Network'ten gelen süreyi kullan
+            
+            Debug.Log($"🔧 [PROJECTILE] Network initialize edildi - Damage: {damage}, Target: {target?.name}, FlightTime: {flightTime:F2}s");
+        }
+
+        /// <summary>
         /// Debug için mevcut projektil bilgilerini gösterir
         /// </summary>
         [ContextMenu("Show Projectile Info")]
