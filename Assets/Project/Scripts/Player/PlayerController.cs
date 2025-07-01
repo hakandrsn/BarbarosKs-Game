@@ -62,6 +62,14 @@ namespace BarbarosKs.Player
         // Bileşenler ve Durumlar
         private Rigidbody _rb;
 
+        // Network optimizasyonu için önceki pozisyon/rotasyon değerleri
+        private Vector3 _lastSentPosition = Vector3.zero;
+        private Quaternion _lastSentRotation = Quaternion.identity;
+        private Vector3 _lastSentVelocity = Vector3.zero;
+        private const float POSITION_THRESHOLD = 0.1f; // 10cm hareket gerekiyor
+        private const float ROTATION_THRESHOLD = 2f; // 2 derece rotasyon gerekiyor
+        private const float VELOCITY_THRESHOLD = 0.1f; // Hız değişimi eşiği
+
         private void Awake()
         {
             Debug.Log("🎮 [PLAYER] PlayerController Awake başladı");
@@ -400,17 +408,35 @@ namespace BarbarosKs.Player
 
         /// <summary>
         ///     Yerel oyuncunun güncel transform'unu sunucuya gönderir.
+        ///     OPTIMIZASYON: Sadece önemli değişiklikler olduğunda gönderir.
         /// </summary>
         private void SendTransformUpdate()
         {
             if (!NetworkManager.Instance.IsConnected) return;
 
-            // NetworkManager'daki yeni, temiz metodu çağırıyoruz.
-            NetworkManager.Instance.SendTransformUpdate(
-                transform.position,
-                transform.rotation,
-                _rb.linearVelocity
-            );
+            var currentPosition = transform.position;
+            var currentRotation = transform.rotation;
+            var currentVelocity = _rb.linearVelocity;
+
+            // Önemli değişiklik var mı kontrol et
+            bool positionChanged = Vector3.Distance(currentPosition, _lastSentPosition) >= POSITION_THRESHOLD;
+            bool rotationChanged = Quaternion.Angle(currentRotation, _lastSentRotation) >= ROTATION_THRESHOLD;
+            bool velocityChanged = Vector3.Distance(currentVelocity, _lastSentVelocity) >= VELOCITY_THRESHOLD;
+
+            // Eğer hiçbir önemli değişiklik yoksa gönderme
+            if (!positionChanged && !rotationChanged && !velocityChanged)
+            {
+                return; // Gereksiz network trafiği önlendi
+            }
+
+            // Değişiklik var, gönder ve son değerleri güncelle
+            NetworkManager.Instance.SendTransformUpdate(currentPosition, currentRotation, currentVelocity);
+            
+            _lastSentPosition = currentPosition;
+            _lastSentRotation = currentRotation;
+            _lastSentVelocity = currentVelocity;
+
+            Debug.Log($"📡 [NETWORK] Transform güncellendi - Pos: {positionChanged}, Rot: {rotationChanged}, Vel: {velocityChanged}");
         }
 
         /// <summary>

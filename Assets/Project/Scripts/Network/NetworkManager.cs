@@ -76,10 +76,18 @@ namespace Project.Scripts.Network
             Debug.Log($"==== SAHNE YÜKLENDİ: {scene.name} ====");
             Debug.Log($"GameManager Instance: {(GameManager.Instance != null ? "MEVCUT" : "NULL")}");
             
-            if (GameManager.Instance != null)
+            // PlayerDataManager durumunu kontrol et
+            bool playerDataExists = PlayerDataManager.Instance != null;
+            bool hasPlayerData = playerDataExists && PlayerDataManager.Instance.HasPlayerData;
+            bool hasActiveShip = playerDataExists && PlayerDataManager.Instance.HasActiveShip;
+            bool hasDetailedShipData = playerDataExists && PlayerDataManager.Instance.HasDetailedShipData;
+            
+            Debug.Log($"PlayerDataManager Instance: {(playerDataExists ? "MEVCUT" : "NULL")}");
+            if (playerDataExists)
             {
-                Debug.Log($"GameManager.ActiveShip: {(GameManager.Instance.ActiveShip != null ? $"MEVCUT - {GameManager.Instance.ActiveShip.Name} (ID: {GameManager.Instance.ActiveShip.Id})" : "NULL")}");
-                Debug.Log($"GameManager.LocalPlayerId: {(GameManager.Instance.LocalPlayerId.HasValue ? GameManager.Instance.LocalPlayerId.Value.ToString() : "NULL")}");
+                Debug.Log($"Player Data: {(hasPlayerData ? $"MEVCUT - {PlayerDataManager.Instance.Username}" : "NULL")}");
+                Debug.Log($"Active Ship: {(hasActiveShip ? $"MEVCUT - {PlayerDataManager.Instance.ActiveShipName} (Lv.{PlayerDataManager.Instance.ActiveShipLevel})" : "NULL")}");
+                Debug.Log($"Detailed Ship Data: {(hasDetailedShipData ? "MEVCUT" : "NULL")}");
             }
             
             bool apiManagerExists = ApiManager.Instance != null;
@@ -87,7 +95,7 @@ namespace Project.Scripts.Network
             Debug.Log($"ApiManager Instance: {(apiManagerExists ? "MEVCUT" : "NULL")}");
             Debug.Log($"Auth Token: {(string.IsNullOrEmpty(authToken) ? "NULL/BOŞ" : $"MEVCUT ({authToken.Length} karakter)")}");
             
-            if (scene.name == "FisherSea" && GameManager.Instance?.ActiveShip != null)
+            if (scene.name == "FisherSea" && hasActiveShip)
             {
                 Debug.Log("✅ Tüm koşullar sağlandı. NetworkManager oyun sunucusuna bağlanıyor...");
                 ConnectToGameServer();
@@ -145,7 +153,7 @@ namespace Project.Scripts.Network
 
         #region Bağlantı ve Temel İletişim
 
-        private void ConnectToGameServer()
+        public void ConnectToGameServer()
         {
             if (IsConnected) return;
             try
@@ -442,14 +450,15 @@ namespace Project.Scripts.Network
         {
             Debug.Log("==== SEND JOIN REQUEST ÇAĞRILDI ====");
             
-            if (GameManager.Instance?.ActiveShip == null)
+            if (PlayerDataManager.Instance?.ActiveShip == null)
             {
-                Debug.LogError("❌ HATA: GameManager.Instance.ActiveShip NULL! Join request gönderilemedi.");
+                Debug.LogError("❌ HATA: PlayerDataManager.Instance.ActiveShip NULL! Join request gönderilemedi.");
                 Debug.LogError("➡️ Çözüm: Gemi seçim ekranından bir gemi seçin.");
                 return;
             }
             
-            Debug.Log($"✅ ActiveShip bulundu: {GameManager.Instance.ActiveShip.Name} (ID: {GameManager.Instance.ActiveShip.Id})");
+            var activeShip = PlayerDataManager.Instance.ActiveShip;
+            Debug.Log($"✅ ActiveShip bulundu: {activeShip.Name} (ID: {activeShip.Id})");
             
             // JWT token'ı ApiManager'dan al
             string authToken = ApiManager.Instance?.GetAuthToken();
@@ -464,7 +473,7 @@ namespace Project.Scripts.Network
 
             var joinData = new C2S_JoinGameData
             {
-                SelectedShipId = GameManager.Instance.ActiveShip.Id,
+                SelectedShipId = activeShip.Id,
                 AuthToken = authToken  // JWT token'ı ekle
             };
 
@@ -474,7 +483,7 @@ namespace Project.Scripts.Network
                 DataJson = JsonConvert.SerializeObject(joinData)
             };
 
-            Debug.Log($"✅ Oyun sunucusuna katılma isteği gönderiliyor. Ship ID: {GameManager.Instance.ActiveShip.Id}");
+            Debug.Log($"✅ Oyun sunucusuna katılma isteği gönderiliyor. Ship ID: {activeShip.Id}");
             SendMessage(message);
             Debug.Log("✅ Join request gönderildi. Sunucu cevabı bekleniyor...");
         }

@@ -1,3 +1,4 @@
+using System;
 using System.Text;
 using System.Threading.Tasks;
 using BarbarosKs.Shared.DTOs;
@@ -46,11 +47,9 @@ public class ApiManager : MonoBehaviour
         // Bu metot artık AuthResponseDto içinde CharacterData'yı da getiriyor.
         var response = await PostRequest<AuthResponseDto>("/Auth/login", loginRequest);
 
-        if (response != null && response.Success)
-        {
-            SetToken(response.Token);
-            Debug.Log("Giriş başarılı. Token kaydedildi.");
-        }
+        if (response is not { Success: true }) return response;
+        SetToken(response.Token);
+        Debug.Log("Giriş başarılı. Token kaydedildi.");
 
         return response;
     }
@@ -81,6 +80,64 @@ public class ApiManager : MonoBehaviour
         _authToken = null;
         PlayerPrefs.DeleteKey("AuthToken");
         Debug.Log("Oturum kapatıldı. Token silindi.");
+    }
+
+    /// <summary>
+    ///     Oyuncunun aktif gemisini sunucuda ayarlar.
+    /// </summary>
+    public async Task<bool> SetActiveShip(Guid shipId)
+    {
+        var endpoint = $"/Players/ships/{shipId}/set-active";
+        
+        try
+        {
+            var response = await PostRequest<ApiResponseDto<object>>(endpoint, new { });
+            
+            if (response != null && response.Success)
+            {
+                Debug.Log($"✅ Aktif gemi sunucuda ayarlandı: {shipId}");
+                return true;
+            }
+            else
+            {
+                Debug.LogError($"❌ Aktif gemi ayarlanamadı: {response?.Message ?? "Bilinmeyen hata"}");
+                return false;
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"❌ SetActiveShip API hatası: {ex.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>
+    ///     Belirli bir geminin detaylı bilgilerini API'den getirir.
+    /// </summary>
+    public async Task<ShipDetailDto> GetShipDetails(Guid shipId)
+    {
+        var endpoint = $"/Players/ships/{shipId}/details";
+        
+        try
+        {
+            var response = await GetRequest<ApiResponseDto<ShipDetailDto>>(endpoint);
+            
+            if (response != null && response.Success && response.Data != null)
+            {
+                Debug.Log($"✅ Gemi detayları alındı: {response.Data.Name}");
+                return response.Data;
+            }
+            else
+            {
+                Debug.LogError($"❌ Gemi detayları alınamadı: {response?.Message ?? "Bilinmeyen hata"}");
+                return null;
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"❌ GetShipDetails API hatası: {ex.Message}");
+            return null;
+        }
     }
 
     /// <summary>

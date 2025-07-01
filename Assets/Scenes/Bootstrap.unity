@@ -471,6 +471,7 @@ GameObject:
   - component: {fileID: 2067728885}
   - component: {fileID: 2067728887}
   - component: {fileID: 2067728888}
+  - component: {fileID: 2067728889}
   m_Layer: 0
   m_Name: _GameManagers
   m_TagString: Untagged
@@ -580,6 +581,21 @@ MonoBehaviour:
   blendDistance: 0
   weight: 1
   sharedProfile: {fileID: 11400000, guid: ab09877e2e707104187f6f83e2f62510, type: 2}
+--- !u!114 &2067728889
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2067728881}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b03114b51abd2874ca5843b4b88e665d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _hasPlayerData: 0
+  _hasActiveShip: 0
+  _hasDetailedShipData: 0
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
