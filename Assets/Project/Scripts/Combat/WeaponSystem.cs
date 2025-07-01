@@ -43,15 +43,75 @@ namespace BarbarosKs.Combat
             if (availableWeapons == null || availableWeapons.Length == 0 ||
                 currentWeaponIndex >= availableWeapons.Length) return;
 
-            Gizmos.color = Color.red;
+            // GameSettings'den menzil bilgisini al
+            var gameSettings = BarbarosKs.Core.GameSettings.Instance;
 
             if (!currentWeapon.isRanged)
-                // Yakın mesafe silahlarının etki alanı
+            {
+                // Yakın mesafe silahlarının etki alanı (kırmızı)
+                Gizmos.color = Color.red;
                 Gizmos.DrawWireSphere(transform.position + transform.forward * currentWeapon.range * 0.5f,
                     currentWeapon.range * 0.5f);
+            }
             else if (projectileSpawnPoint != null)
-                // Uzak mesafe silahlarının atış doğrultusu
-                Gizmos.DrawRay(projectileSpawnPoint.position, projectileSpawnPoint.forward * 5f);
+            {
+                // Uzak mesafe silahları için gelişmiş görselleştirme
+                
+                // 1. Ateş noktası (mavi küre)
+                Gizmos.color = Color.blue;
+                Gizmos.DrawWireSphere(projectileSpawnPoint.position, 0.5f);
+                
+                // 2. Ateş yönü (mavi ok)
+                Gizmos.color = Color.cyan;
+                Gizmos.DrawRay(projectileSpawnPoint.position, projectileSpawnPoint.forward * 10f);
+                
+                // 3. GameSettings'den maksimum menzil (turuncu çember)
+                if (gameSettings != null)
+                {
+                    Gizmos.color = Color.yellow;
+                    DrawCircle(transform.position, gameSettings.maxProjectileRange);
+                    
+                    // Menzil bilgisi label
+                    #if UNITY_EDITOR
+                    UnityEditor.Handles.color = Color.yellow;
+                    UnityEditor.Handles.Label(
+                        transform.position + Vector3.up * 5f,
+                        $"🎯 Maksimum Menzil: {gameSettings.maxProjectileRange}m\n" +
+                        $"⚡ Mermi Hızı: {gameSettings.projectileSpeed} m/s\n" +
+                        $"📈 Yörünge: {gameSettings.projectileArcHeight}m"
+                    );
+                    #endif
+                }
+                
+                // 4. Silah menzili (eğer tanımlıysa - kırmızı)
+                if (currentWeapon.range > 0)
+                {
+                    Gizmos.color = Color.red;
+                    DrawCircle(transform.position, currentWeapon.range);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Manuel olarak çember çizer (Gizmos.DrawWireCircle Unity'de yok)
+        /// </summary>
+        private void DrawCircle(Vector3 center, float radius, int segments = 36)
+        {
+            float angleStep = 360f / segments;
+            Vector3 prevPoint = center + new Vector3(radius, 0, 0);
+            
+            for (int i = 1; i <= segments; i++)
+            {
+                float angle = i * angleStep * Mathf.Deg2Rad;
+                Vector3 newPoint = center + new Vector3(
+                    Mathf.Cos(angle) * radius, 
+                    0, 
+                    Mathf.Sin(angle) * radius
+                );
+                
+                Gizmos.DrawLine(prevPoint, newPoint);
+                prevPoint = newPoint;
+            }
         }
 
         public void Attack(Transform target = null)
@@ -145,9 +205,9 @@ namespace BarbarosKs.Combat
                 projectileSpawnPoint.position,
                 projectileSpawnPoint.rotation);
 
-            // Projektile hedef ve diğer bilgileri ver
+            // Projektile hedef ve diğer bilgileri ver (FlightTime artık GameSettings'den hesaplanacak)
             if (projectile.TryGetComponent<Projectile>(out var projectileComponent))
-                projectileComponent.Initialize(currentWeapon.damage, target, gameObject, 3f); // 3 saniye sabit
+                projectileComponent.Initialize(currentWeapon.damage, target, gameObject);
         }
 
         // Geliştirici metodları

@@ -149,6 +149,16 @@ namespace Project.Scripts.Network
         /// </summary>
         public event Action<S2C_HealthUpdateData> OnHealthUpdate;
 
+        /// <summary>
+        ///     YENİ: Oyuncunun gönderdiği aksiyon başarılı olduğunda tetiklenir.
+        /// </summary>
+        public event Action<object> OnActionSuccess; // object: sunucudan gelen action data'sı
+
+        /// <summary>
+        ///     YENİ: Oyuncunun gönderdiği aksiyon başarısız olduğunda tetiklenir.
+        /// </summary>
+        public event Action<S2C_ActionFailedData> OnActionFailed;
+
         #endregion
 
         #region Bağlantı ve Temel İletişim
@@ -393,6 +403,16 @@ namespace Project.Scripts.Network
                             case MessageType.S2C_Pong:
                                 var timestamp = JsonConvert.DeserializeObject<long>(gameMessage.DataJson);
                                 ProcessPong(timestamp);
+                                break;
+                            case MessageType.S2C_ActionAcknowledged:
+                                var actionSuccessData = JsonConvert.DeserializeObject<object>(gameMessage.DataJson);
+                                Debug.Log($"✅ [ACTION SUCCESS] Aksiyon başarılı: {gameMessage.DataJson}");
+                                if (actionSuccessData != null) OnActionSuccess?.Invoke(actionSuccessData);
+                                break;
+                            case MessageType.S2C_ActionFailed:
+                                var actionFailedData = JsonConvert.DeserializeObject<S2C_ActionFailedData>(gameMessage.DataJson);
+                                Debug.Log($"❌ [ACTION FAILED] Aksiyon başarısız: {actionFailedData?.Reason}");
+                                if (actionFailedData != null) OnActionFailed?.Invoke(actionFailedData);
                                 break;
                             default:
                                 Debug.LogWarning($"❌ [PROCESS] Bilinmeyen mesaj tipi: {gameMessage.Type}");

@@ -19,7 +19,7 @@ namespace BarbarosKs.Player
         [Header("Sağlık Ayarları")] [SerializeField]
         private int maxHealth = 100;
 
-        [SerializeField] private int currentHealth;
+        [SerializeField] public int currentHealth;
 
         [Header("Efekt ve Ses Ayarları")] [SerializeField]
         private float invincibilityTime = 0.5f; // Hasar aldıktan sonra kısa süreli dokunulmazlık (efekt tekrarı için)

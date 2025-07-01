@@ -17,6 +17,21 @@ namespace BarbarosKs.Testing
         private Renderer objectRenderer;
         private Material originalMaterial;
         
+        /// <summary>
+        /// Mevcut can miktarı (public erişim için)
+        /// </summary>
+        public int CurrentHealth => currentHealth;
+        
+        /// <summary>
+        /// Maksimum can miktarı (public erişim için)
+        /// </summary>
+        public int MaxHealth => maxHealth;
+        
+        /// <summary>
+        /// Düşman ölü mü kontrol eder
+        /// </summary>
+        public bool IsDead => currentHealth <= 0;
+        
         private void Awake()
         {
             currentHealth = maxHealth;
