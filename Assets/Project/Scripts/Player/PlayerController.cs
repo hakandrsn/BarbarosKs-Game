@@ -448,6 +448,15 @@ namespace BarbarosKs.Player
             Debug.Log($"📡 [FIRE] Sunucuya ateş isteği gönderildi! Hedef: {_selectedTarget.name}, ID: {targetId}");
             Debug.Log("⏳ [FIRE] Sunucu onayı bekleniyor... Gerçek ateş efekti sunucu onayında çalışacak.");
 
+            // ✅ YENİ: Immediate visual feedback için local gülle spawn et
+            // Server validation başarısız olsa bile kullanıcı görsel feedback alır
+            Debug.Log("🚀 [FIRE] Immediate feedback için local gülle spawn ediliyor...");
+            if (_weaponSystem != null && _selectedTarget != null)
+            {
+                _weaponSystem.Attack(_selectedTarget.transform);
+                Debug.Log("✅ [FIRE] Immediate gülle spawn edildi!");
+            }
+
             // Hedef etkileşimi hemen yenile (kullanıcı feedback için)
             RefreshTargetInteraction();
         }

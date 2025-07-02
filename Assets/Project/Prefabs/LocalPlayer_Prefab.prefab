@@ -376,7 +376,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   availableWeapons:
-  - weaponName: Light cannon
+  - weaponName: Cannonball
     weaponPrefab: {fileID: 0}
     weaponHolder: {fileID: 0}
     damage: 25

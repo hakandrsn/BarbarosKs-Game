@@ -201,27 +201,39 @@ namespace BarbarosKs.Combat
             if (currentWeapon.projectilePrefab == null || projectileSpawnPoint == null) return;
             if (target == null) return; // Hedef yoksa ateş etme
 
-            // ✅ Sadece local player gülle spawn eder (network senkronizasyon için)
-            // PlayerController'dan local player kontrolü yap
+            // ✅ Debug: Local player kontrolü
             var playerController = GetComponent<PlayerController>();
-            bool isLocalPlayer = playerController != null && playerController.GetIsLocalPlayer();
+            bool hasPlayerController = playerController != null;
+            bool isLocalPlayer = hasPlayerController && playerController.GetIsLocalPlayer();
             
-            if (!isLocalPlayer)
+            Debug.Log($"🔍 [WEAPON DEBUG] PlayerController: {(hasPlayerController ? "VAR" : "YOK")}");
+            if (hasPlayerController)
+            {
+                Debug.Log($"🔍 [WEAPON DEBUG] IsLocalPlayer: {isLocalPlayer}");
+            }
+            
+            // ✅ GEÇİCİ FİX: Local player kontrolünü devre dışı bırak, her zaman gülle spawn et
+            // (Network projesi düzeltildiğinde bu kaldırılacak)
+            bool forceSpawn = true; // Geçici çözüm
+            
+            if (!forceSpawn && !isLocalPlayer)
             {
                 Debug.Log("🚫 [WEAPON] Remote player, gülle spawn edilmedi (network'ten gelecek)");
                 return;
             }
 
-            // Projektil oluştur (sadece local player için)
+            Debug.Log("🚀 [WEAPON] Gülle spawn ediliyor (geçici fix ile)");
+            
+            // Projektil oluştur
             var projectile = Instantiate(currentWeapon.projectilePrefab,
                 projectileSpawnPoint.position,
                 projectileSpawnPoint.rotation);
 
-            // Projektile hedef ve diğer bilgileri ver (FlightTime artık GameSettings'den hesaplanacak)
+            // Projektile hedef ve diğer bilgileri ver
             if (projectile.TryGetComponent<Projectile>(out var projectileComponent))
             {
                 projectileComponent.Initialize(currentWeapon.damage, target, gameObject);
-                Debug.Log("🚀 [WEAPON] Local player gülle spawn edildi");
+                Debug.Log("✅ [WEAPON] Gülle başarıyla spawn edildi!");
             }
         }
 
