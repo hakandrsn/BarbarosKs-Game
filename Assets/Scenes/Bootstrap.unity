@@ -465,12 +465,15 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2067728884}
-  - component: {fileID: 2067728883}
   - component: {fileID: 2067728882}
-  - component: {fileID: 2067728886}
-  - component: {fileID: 2067728885}
-  - component: {fileID: 2067728887}
   - component: {fileID: 2067728888}
+  - component: {fileID: 2067728896}
+  - component: {fileID: 2067728895}
+  - component: {fileID: 2067728894}
+  - component: {fileID: 2067728893}
+  - component: {fileID: 2067728892}
+  - component: {fileID: 2067728891}
+  - component: {fileID: 2067728890}
   - component: {fileID: 2067728889}
   m_Layer: 0
   m_Name: _GameManagers
@@ -492,18 +495,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   baseApiUrl: http://localhost:5252/api
---- !u!114 &2067728883
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2067728881}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5d1883696811e0b4b83a8419c42b5a8f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!4 &2067728884
 Transform:
   m_ObjectHideFlags: 0
@@ -519,51 +510,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &2067728885
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2067728881}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 2fdfe4a979d4aca47bacd19861cd928f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
---- !u!114 &2067728886
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2067728881}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6184eec591f940a0be1ce211d7cf6e8e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  serverIP: 127.0.0.1
-  serverPort: 9999
---- !u!114 &2067728887
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2067728881}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3214aa89bfe43554c8957642dfcc4625, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  sounds: []
-  musicMixerGroup: {fileID: 0}
-  sfxMixerGroup: {fileID: 0}
-  ambientMusicTracks: []
-  combatMusicTracks: []
-  menuMusicTracks: []
-  musicFadeDuration: 2
 --- !u!114 &2067728888
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -590,12 +536,139 @@ MonoBehaviour:
   m_GameObject: {fileID: 2067728881}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b03114b51abd2874ca5843b4b88e665d, type: 3}
+  m_Script: {fileID: 11500000, guid: 01b30bb243622764e98b9d96ad37b33a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _hasPlayerData: 0
-  _hasActiveShip: 0
-  _hasDetailedShipData: 0
+  prefabs: []
+  floorCollider: {fileID: 0}
+  cameraPivot: {fileID: 0}
+  cameraRotationSpeed: 10
+  destroyDelay: 2
+  infoText: {fileID: 0}
+--- !u!114 &2067728890
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2067728881}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 24781741080fd034aae25f45bdf6adb4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _enableCaching: 1
+  _cacheExpirationMinutes: 30
+  _isLoading: 0
+  _hasCache: 0
+--- !u!114 &2067728891
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2067728881}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7dc9bb1cfb24eb8448757336dd102229, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _loadCannonballsOnStart: 1
+  _loadItemsOnStart: 0
+  _autoRetryOnFailure: 1
+  _maxRetryAttempts: 3
+  _retryDelaySeconds: 2
+  _isInitializing: 0
+  _isInitialized: 0
+  _currentStatus: Bekleniyor
+--- !u!114 &2067728892
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2067728881}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c11b81a0de59dba4f882ab98c2b7ae18, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _isInitialized: 0
+  _cannonballCount: 0
+  _itemCount: 0
+--- !u!114 &2067728893
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2067728881}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 49351bd453fcdca46b199dbe98d36b27, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  lastKnownPosition: {x: 0, y: 0, z: 0}
+  lastKnownHealth: 0
+  isInGame: 0
+  verboseLogging: 1
+--- !u!114 &2067728894
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2067728881}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7c438754b18c9614d8d3e47fce86f8b7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  currentState: 0
+  previousState: 0
+  verboseLogging: 1
+--- !u!114 &2067728895
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2067728881}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2fbd8935ea18e58468a24e98a2616c46, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  bootstrapScene: Bootstrap
+  loginScene: Login
+  registerScene: Register
+  loadingScene: Loading
+  shipSelectionScene: SelectShipScene
+  createShipScene: CreateShip
+  gameScene: FisherSea
+  minimumLoadingTime: 2
+  useLoadingScreen: 1
+--- !u!114 &2067728896
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2067728881}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 30ff62fe8bd8f6c46a9fb18983728633, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  autoInitializeOnAwake: 1
+  createMissingSystemsFromCode: 1
+  enableBootstrapSystems: 1
+  enableGameplaySystems: 1
+  enableUISystems: 1
+  systemInitializationDelay: 0.1
+  sceneSystemsDelay: 0.5
+  verboseLogging: 1
+  showInitializationProgress: 1
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

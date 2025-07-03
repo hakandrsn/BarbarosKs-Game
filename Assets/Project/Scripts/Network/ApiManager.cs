@@ -143,7 +143,7 @@ public class ApiManager : MonoBehaviour
     /// <summary>
     ///     API'ye GET isteği göndermek için genel bir metot.
     /// </summary>
-    private async Task<T> GetRequest<T>(string endpoint) where T : class
+    public async Task<T> GetRequest<T>(string endpoint) where T : class
     {
         var url = baseApiUrl + endpoint;
 
@@ -166,7 +166,7 @@ public class ApiManager : MonoBehaviour
     /// <summary>
     ///     API'ye POST isteği göndermek için genel bir metot.
     /// </summary>
-    private async Task<T> PostRequest<T>(string endpoint, object payload) where T : class
+    public async Task<T> PostRequest<T>(string endpoint, object payload) where T : class
     {
         var url = baseApiUrl + endpoint;
         var jsonPayload = JsonConvert.SerializeObject(payload);
@@ -197,8 +197,6 @@ public class ApiManager : MonoBehaviour
         {
             return null; // Eğer hata mesajı JSON formatında değilse null dön.
         }
-
-        // return JsonConvert.DeserializeObject<T>(request.downloadHandler.text);
     }
 
     private void SetToken(string token)

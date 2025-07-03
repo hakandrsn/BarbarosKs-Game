@@ -1,27 +1,36 @@
 using System;
 using BarbarosKs.Shared.DTOs;
 using UnityEngine;
-using UnityEngine.SceneManagement;
+using BarbarosKs.Core;
 
+/// <summary>
+/// **DEPRECATED** - Bu sınıf kullanım dışı!
+/// 
+/// Yeni sistemler:
+/// - PlayerManager: Player ve ship yönetimi için
+/// - SceneController: Sahne yönetimi için
+/// - GameStateManager: Oyun durumu yönetimi için
+/// 
+/// Bu sınıf sadece eski uyumluluk için tutulmaktadır.
+/// Yeni kodlarda kullanmayın!
+/// </summary>
+[System.Obsolete("GameManager deprecated! PlayerManager, SceneController ve GameStateManager kullanın")]
 public class GameManager : MonoBehaviour
 {
     public static GameManager Instance { get; private set; }
 
-    // **DEPRECATED** - PlayerDataManager kullanın
-    // Eski sistemle uyumluluk için kısa süre tutulacak
-    [System.Obsolete("PlayerDataManager.Instance kullanın")]
-    public CharacterSelectionDto CharacterData => PlayerDataManager.Instance?.PlayerProfile != null ? 
-        new CharacterSelectionDto { PlayerProfile = PlayerDataManager.Instance.PlayerProfile, Ships = PlayerDataManager.Instance.OwnedShips } : null;
+    // **DEPRECATED** - PlayerManager kullanın
+    [System.Obsolete("PlayerManager.Instance.PlayerProfile kullanın")]
+    public CharacterSelectionDto CharacterData => GetCharacterDataFromPlayerManager();
 
-    [System.Obsolete("PlayerDataManager.Instance.ActiveShip kullanın")]
-    public ShipSummaryDto ActiveShip => PlayerDataManager.Instance?.ActiveShip;
+    [System.Obsolete("PlayerManager.Instance.ActiveShip kullanın")]
+    public ShipSummaryDto ActiveShip => PlayerManager.Instance?.ActiveShip;
 
-    // Kolay erişim için kısayollar
-    [System.Obsolete("PlayerDataManager.Instance.PlayerProfile kullanın")]
-    public PlayerProfileDto CurrentPlayerProfile => PlayerDataManager.Instance?.PlayerProfile;
+    [System.Obsolete("PlayerManager.Instance.PlayerProfile kullanın")]
+    public PlayerProfileDto CurrentPlayerProfile => PlayerManager.Instance?.PlayerProfile;
     
-    [System.Obsolete("PlayerDataManager.Instance.PlayerProfile?.Id kullanın")]
-    public Guid? LocalPlayerId => PlayerDataManager.Instance?.PlayerProfile?.Id;
+    [System.Obsolete("PlayerManager.Instance.GetPlayerId() kullanın")]
+    public Guid? LocalPlayerId => PlayerManager.Instance?.GetPlayerId();
 
     private void Awake()
     {
@@ -29,6 +38,11 @@ public class GameManager : MonoBehaviour
         {
             Instance = this;
             DontDestroyOnLoad(gameObject);
+            
+            Debug.LogWarning("⚠️ [DEPRECATED] GameManager kullanılıyor! Yeni sistemlere geçin:");
+            Debug.LogWarning("   - PlayerManager: Player ve ship yönetimi");
+            Debug.LogWarning("   - SceneController: Sahne yönetimi");
+            Debug.LogWarning("   - GameStateManager: Oyun durumu yönetimi");
         }
         else
         {
@@ -37,85 +51,137 @@ public class GameManager : MonoBehaviour
     }
 
     /// <summary>
-    ///     Login veya Register sonrası API'den gelen veriyi işler ve doğru sahneye yönlendirir.
+    /// **DEPRECATED** - PlayerManager.Instance.HandleLoginSuccess() kullanın
     /// </summary>
+    [System.Obsolete("PlayerManager.Instance.HandleLoginSuccess() kullanın")]
     public void OnCharacterDataReceived(CharacterSelectionDto characterData)
     {
-        if (characterData == null)
-        {
-            Debug.LogError("❌ Karakter verisi alınamadı veya eksik!");
-            return;
-        }
-
-        // Null control ekliyoruz
-        if (characterData.PlayerProfile == null)
-        {
-            Debug.LogError("❌ PlayerProfile null! CharacterData içinde player profili bulunamadı.");
-            return;
-        }
-
-        if (characterData.Ships == null)
-        {
-            Debug.LogError("❌ Ships listesi null! CharacterData içinde gemi listesi bulunamadı.");
-            return;
-        }
-
-        // PlayerDataManager kontrolü
-        if (PlayerDataManager.Instance == null)
-        {
-            Debug.LogError("❌ PlayerDataManager Instance null! PlayerDataManager başlatılmamış.");
-            return;
-        }
-
-        // Debug için detaylı log
-        Debug.Log($"🎯 CharacterData alındı:");
-        Debug.Log($"   - PlayerProfile: {(characterData.PlayerProfile != null ? "MEVCUT" : "NULL")}");
-        Debug.Log($"   - PlayerProfile.Username: {characterData.PlayerProfile?.Username ?? "NULL"}");
-        Debug.Log($"   - Ships: {(characterData.Ships != null ? "MEVCUT" : "NULL")}");
-        Debug.Log($"   - Ships.Count: {characterData.Ships?.Count ?? 0}");
-
-        // Veriyi PlayerDataManager'a yükle
-        PlayerDataManager.Instance.LoadPlayerData(characterData);
+        Debug.LogWarning("⚠️ [DEPRECATED] GameManager.OnCharacterDataReceived deprecated! PlayerManager.HandleLoginSuccess() kullanın");
         
-        Debug.Log($"✅ Hoşgeldin, {characterData.PlayerProfile.Username}! Sahip olunan gemi sayısı: {characterData.Ships.Count}");
-
-        if (characterData.Ships.Count == 0)
+        // Yeni sisteme yönlendir
+        if (PlayerManager.Instance != null)
         {
-            Debug.Log("🚢 Oyuncunun hiç gemisi yok. Gemi oluşturma sahnesine yönlendiriliyor...");
-            SceneManager.LoadScene("CreateShip");
+            PlayerManager.Instance.HandleLoginSuccess(characterData);
         }
         else
         {
-            Debug.Log("🚢 Oyuncunun gemileri var. Gemi seçim sahnesine yönlendiriliyor...");
-            // ARTIK OTOMATİK SEÇİM YOK - Her zaman gemi seçim ekranına git
-            SceneManager.LoadScene("Scenes/SelectShipScene");
+            Debug.LogError("❌ PlayerManager bulunamadı! SystemCoordinator çalıştığından emin olun.");
         }
     }
 
     /// <summary>
-    ///     Gemi seçim ekranından seçilen gemiyi ayarlar ve oyun dünyasına giriş yapar.
-    ///     **DEPRECATED** - ShipSelectionUI artık kendi flow'unu yönetiyor
+    /// **DEPRECATED** - PlayerManager.Instance.HandleShipSelection() kullanın
     /// </summary>
-    [System.Obsolete("ShipSelectionUI artık kendi flow'unu yönetiyor")]
+    [System.Obsolete("PlayerManager.Instance.HandleShipSelection() kullanın")]
     public void SetActiveShipAndEnterGame(ShipSummaryDto selectedShip)
     {
-        Debug.Log($"==== GEMİ SEÇİMİ YAPILDI (DEPRECATED METHOD) ====");
-        Debug.Log($"Seçilen Gemi: {selectedShip?.Name ?? "NULL"} (ID: {selectedShip?.Id.ToString() ?? "NULL"})");
+        Debug.LogWarning("⚠️ [DEPRECATED] GameManager.SetActiveShipAndEnterGame deprecated! PlayerManager.HandleShipSelection() kullanın");
         
-        if (selectedShip == null)
+        // Yeni sisteme yönlendir
+        if (PlayerManager.Instance != null)
         {
-            Debug.LogError("❌ HATA: Seçilen gemi NULL!");
-            return;
+            PlayerManager.Instance.HandleShipSelection(selectedShip);
         }
-        
-        // PlayerDataManager'a ayarla
-        PlayerDataManager.Instance.SetActiveShip(selectedShip);
-        Debug.Log($"✅ ActiveShip ayarlandı: {selectedShip.Name}. Oyun sahnesi yükleniyor...");
-        SceneManager.LoadScene("FisherSea");
+        else
+        {
+            Debug.LogError("❌ PlayerManager bulunamadı! SystemCoordinator çalıştığından emin olun.");
+        }
     }
 
+    /// <summary>
+    /// **DEPRECATED** - SceneController.Instance.LoadScene() kullanın
+    /// </summary>
+    [System.Obsolete("SceneController.Instance.LoadScene() kullanın")]
     public void ToScene(string scene)
     {
-        SceneManager.LoadScene(scene);
+        Debug.LogWarning($"⚠️ [DEPRECATED] GameManager.ToScene deprecated! SceneController.LoadScene() kullanın - Scene: {scene}");
+        
+        // Yeni sisteme yönlendir
+        if (SceneController.Instance != null)
+        {
+            SceneController.Instance.LoadScene(scene);
+        }
+        else
+        {
+            Debug.LogError("❌ SceneController bulunamadı! SystemCoordinator çalıştığından emin olun.");
+            
+            // Fallback - eski method
+            UnityEngine.SceneManagement.SceneManager.LoadScene(scene);
+        }
+    }
+
+    /// <summary>
+    /// PlayerManager'dan CharacterSelectionDto oluşturur (Compatibility için)
+    /// </summary>
+    private CharacterSelectionDto GetCharacterDataFromPlayerManager()
+    {
+        if (PlayerManager.Instance == null) return null;
+
+        var playerProfile = PlayerManager.Instance.PlayerProfile;
+        var ships = PlayerManager.Instance.OwnedShips;
+
+        if (playerProfile == null) return null;
+
+        return new CharacterSelectionDto
+        {
+            PlayerProfile = playerProfile,
+            Ships = ships
+        };
+    }
+
+    /// <summary>
+    /// Debug: Yeni sistemlere yönlendirme durumunu gösterir
+    /// </summary>
+    [ContextMenu("Debug: Show Migration Status")]
+    private void DebugShowMigrationStatus()
+    {
+        Debug.Log("=== GAMEMANAGER MIGRATION STATUS ===");
+        Debug.Log($"PlayerManager Available: {PlayerManager.Instance != null}");
+        Debug.Log($"SceneController Available: {SceneController.Instance != null}");
+        Debug.Log($"GameStateManager Available: {GameStateManager.Instance != null}");
+        
+        if (PlayerManager.Instance != null)
+        {
+            Debug.Log($"Player Data: {(PlayerManager.Instance.HasPlayerData ? "✅ Loaded" : "❌ Not Loaded")}");
+            Debug.Log($"Active Ship: {(PlayerManager.Instance.HasActiveShip ? "✅ Set" : "❌ Not Set")}");
+        }
+        
+        Debug.Log("=== MİGRATİON RECOMMENDATİON ===");
+        Debug.Log("Bu GameManager'ı kullanmayı bırakın ve şu sistemleri kullanın:");
+        Debug.Log("1. PlayerManager - Player ve ship yönetimi");
+        Debug.Log("2. SceneController - Sahne yönetimi");
+        Debug.Log("3. GameStateManager - Oyun durumu yönetimi");
+    }
+
+    /// <summary>
+    /// Debug: Eski kodları yeni sistemlere yönlendirir
+    /// </summary>
+    [ContextMenu("Debug: Test New System Integration")]
+    private void DebugTestNewSystemIntegration()
+    {
+        Debug.Log("🔄 Testing new system integration...");
+        
+        // Test PlayerManager
+        if (PlayerManager.Instance != null)
+        {
+            Debug.Log("✅ PlayerManager available");
+            if (PlayerManager.Instance.HasPlayerData)
+            {
+                Debug.Log($"   Player: {PlayerManager.Instance.PlayerProfile.Username}");
+                Debug.Log($"   Ships: {PlayerManager.Instance.ShipCount}");
+            }
+        }
+        
+        // Test SceneController
+        if (SceneController.Instance != null)
+        {
+            Debug.Log("✅ SceneController available");
+        }
+        
+        // Test GameStateManager
+        if (GameStateManager.Instance != null)
+        {
+            Debug.Log($"✅ GameStateManager available - State: {GameStateManager.Instance.CurrentState}");
+        }
     }
 }

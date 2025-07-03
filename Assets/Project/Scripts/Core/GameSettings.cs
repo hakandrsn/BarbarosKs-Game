@@ -49,16 +49,12 @@ namespace BarbarosKs.Core
         {
             get
             {
-                if (_instance == null)
-                {
-                    _instance = Resources.Load<GameSettings>("GameSettings");
-                    if (_instance == null)
-                    {
-                        Debug.LogError("❌ [GAME SETTINGS] GameSettings asset bulunamadı! Resources/GameSettings.asset oluşturun.");
-                        // Fallback olarak default değerlerle geçici instance oluştur
-                        _instance = CreateInstance<GameSettings>();
-                    }
-                }
+                if (_instance) return _instance;
+                _instance = Resources.Load<GameSettings>("GameSettings");
+                if (_instance) return _instance;
+                Debug.LogError("❌ [GAME SETTINGS] GameSettings asset bulunamadı! Resources/GameSettings.asset oluşturun.");
+                // Fallback olarak default değerlerle geçici instance oluştur
+                _instance = CreateInstance<GameSettings>();
                 return _instance;
             }
         }

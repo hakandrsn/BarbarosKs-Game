@@ -42,20 +42,48 @@ namespace BarbarosKs.Utils
                 return;
             }
 
-            // Tüm ses objelerini oluştur
-            foreach (var s in sounds)
+            // Null check for sounds array
+            if (sounds == null || sounds.Length == 0)
             {
-                s.source = gameObject.AddComponent<AudioSource>();
-                s.source.clip = s.clip;
-                s.source.volume = s.volume;
-                s.source.pitch = s.pitch;
-                s.source.loop = s.loop;
+                Debug.LogWarning("⚠️ [AUDIO MANAGER] Sounds array boş! Inspector'dan ses dosyalarını atayın.");
+                return;
+            }
 
-                // Müzik veya efekt mixer grubuna ata
-                if (s.name.StartsWith("Music"))
-                    s.source.outputAudioMixerGroup = musicMixerGroup;
-                else
-                    s.source.outputAudioMixerGroup = sfxMixerGroup;
+            // Tüm ses objelerini oluştur
+            try
+            {
+                foreach (var s in sounds)
+                {
+                    if (s == null)
+                    {
+                        Debug.LogWarning("⚠️ [AUDIO MANAGER] Null sound element skipped");
+                        continue;
+                    }
+
+                    if (s.clip == null)
+                    {
+                        Debug.LogWarning($"⚠️ [AUDIO MANAGER] AudioClip null for sound: {s.name}");
+                        continue;
+                    }
+
+                    s.source = gameObject.AddComponent<AudioSource>();
+                    s.source.clip = s.clip;
+                    s.source.volume = s.volume;
+                    s.source.pitch = s.pitch;
+                    s.source.loop = s.loop;
+
+                    // Müzik veya efekt mixer grubuna ata
+                    if (s.name.StartsWith("Music"))
+                        s.source.outputAudioMixerGroup = musicMixerGroup;
+                    else
+                        s.source.outputAudioMixerGroup = sfxMixerGroup;
+                }
+                
+                Debug.Log($"✅ [AUDIO MANAGER] {sounds.Length} ses dosyası yüklendi");
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError($"❌ [AUDIO MANAGER] Ses yükleme hatası: {ex.Message}");
             }
         }
 

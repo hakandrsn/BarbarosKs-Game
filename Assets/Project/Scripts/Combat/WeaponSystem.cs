@@ -198,28 +198,18 @@ namespace BarbarosKs.Combat
 
         private void RangedAttack(Transform target)
         {
-            if (currentWeapon.projectilePrefab == null || projectileSpawnPoint == null) return;
-            if (target == null) return; // Hedef yoksa ateş etme
+            if (!currentWeapon.projectilePrefab || !projectileSpawnPoint) return;
+            if (!target) return; // Hedef yoksa ateş etme
 
             // ✅ Debug: Local player kontrolü
             var playerController = GetComponent<PlayerController>();
-            bool hasPlayerController = playerController != null;
-            bool isLocalPlayer = hasPlayerController && playerController.GetIsLocalPlayer();
+            bool hasPlayerController = playerController;
+            var isLocalPlayer = hasPlayerController && playerController.GetIsLocalPlayer();
             
             Debug.Log($"🔍 [WEAPON DEBUG] PlayerController: {(hasPlayerController ? "VAR" : "YOK")}");
             if (hasPlayerController)
             {
                 Debug.Log($"🔍 [WEAPON DEBUG] IsLocalPlayer: {isLocalPlayer}");
-            }
-            
-            // ✅ GEÇİCİ FİX: Local player kontrolünü devre dışı bırak, her zaman gülle spawn et
-            // (Network projesi düzeltildiğinde bu kaldırılacak)
-            bool forceSpawn = true; // Geçici çözüm
-            
-            if (!forceSpawn && !isLocalPlayer)
-            {
-                Debug.Log("🚫 [WEAPON] Remote player, gülle spawn edilmedi (network'ten gelecek)");
-                return;
             }
 
             Debug.Log("🚀 [WEAPON] Gülle spawn ediliyor (geçici fix ile)");
@@ -230,11 +220,9 @@ namespace BarbarosKs.Combat
                 projectileSpawnPoint.rotation);
 
             // Projektile hedef ve diğer bilgileri ver
-            if (projectile.TryGetComponent<Projectile>(out var projectileComponent))
-            {
-                projectileComponent.Initialize(currentWeapon.damage, target, gameObject);
-                Debug.Log("✅ [WEAPON] Gülle başarıyla spawn edildi!");
-            }
+            if (!projectile.TryGetComponent<Projectile>(out var projectileComponent)) return;
+            projectileComponent.Initialize(currentWeapon.damage, target, gameObject);
+            Debug.Log("✅ [WEAPON] Gülle başarıyla spawn edildi!");
         }
 
         // Geliştirici metodları

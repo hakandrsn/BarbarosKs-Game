@@ -8,16 +8,24 @@ using Project.Scripts.Network;
 
 namespace BarbarosKs.Core
 {
+    /// <summary>
+    /// Loading süreçlerini yöneten sistem
+    /// Deprecated - SceneController ile değiştirildi, geriye uyumluluk için korunuyor
+    /// </summary>
+    [System.Obsolete("LoadingManager deprecated. Use SceneController instead.")]
     public class LoadingManager : MonoBehaviour
     {
         private static LoadingManager instance;
         public static LoadingManager Instance => instance;
 
-        [Header("Scene Settings")] [SerializeField]
-        private string gameSceneName = "FisherSea";
+        [Header("Scene Settings")] 
+        [SerializeField] private string gameSceneName = "FisherSea";
 
-        [Header("Loading Steps")] [SerializeField]
-        private float stepDuration = 0.5f; // Her step arasında minimum süre
+        [Header("Loading Steps")] 
+        [SerializeField] private float stepDuration = 0.5f; // Her step arasında minimum süre
+
+        [Header("Debug")]
+        [SerializeField] private bool verboseLogging = true;
 
         // Loading süreci için state flags
         private bool _loadingFailed = false;
@@ -29,6 +37,7 @@ namespace BarbarosKs.Core
             {
                 instance = this;
                 DontDestroyOnLoad(gameObject);
+                DebugLog("⚠️ LoadingManager deprecated - SceneController kullanın");
             }
             else
             {
@@ -38,11 +47,29 @@ namespace BarbarosKs.Core
 
         /// <summary>
         /// Gemi seçildikten sonra tüm loading sürecini başlatır
+        /// DEPRECATED: SceneController.HandleShipSelected() kullanın
         /// </summary>
+        [System.Obsolete("Use SceneController.HandleShipSelected() instead")]
         public void StartShipLoadingProcess(Guid selectedShipId)
         {
-            Debug.Log($"[LoadingManager] Gemi loading süreci başlatılıyor: {selectedShipId}");
+            DebugLog($"⚠️ DEPRECATED: StartShipLoadingProcess çağrıldı - SceneController kullanın");
+            DebugLog($"Gemi loading süreci başlatılıyor: {selectedShipId}");
 
+            // SceneController varsa ona yönlendir
+            if (SceneController.Instance != null)
+            {
+                // PlayerManager'dan ship'i al ve SceneController'a gönder
+                if (PlayerManager.Instance != null && PlayerManager.Instance.HasActiveShip)
+                {
+                    var activeShip = PlayerManager.Instance.ActiveShip;
+                    SceneController.Instance.HandleShipSelected(activeShip);
+                    return;
+                }
+            }
+
+            // Fallback: Eski sistem
+            DebugLog("SceneController bulunamadı, eski loading sistemi kullanılıyor");
+            
             // State'i sıfırla
             _loadingFailed = false;
             _loadingErrorMessage = "";
@@ -53,11 +80,11 @@ namespace BarbarosKs.Core
         private IEnumerator LoadShipAndConnectToServer(Guid shipId)
         {
             // Loading ekranını göster
-            LoadingScreen.Instance?.ShowLoading("Gemi hazırlanıyor...");
+            ShowLoadingMessage("Gemi hazırlanıyor...", 0.1f);
             yield return new WaitForSeconds(0.2f);
 
             // Step 1: Aktif gemiyi ayarla
-            LoadingScreen.Instance?.UpdateLoadingStep("Gemi seçiliyor...", 0.1f);
+            ShowLoadingMessage("Gemi seçiliyor...", 0.2f);
             yield return StartCoroutine(SetActiveShipCoroutine(shipId));
 
             // Hata kontrolü
@@ -69,21 +96,29 @@ namespace BarbarosKs.Core
 
             yield return new WaitForSeconds(stepDuration);
 
-            // Step 2: Gemi detaylarını çek
-            LoadingScreen.Instance?.UpdateLoadingStep("Gemi bilgileri alınıyor...", 0.3f);
-            yield return StartCoroutine(GetShipDetailsCoroutine(shipId));
-
-            // Hata kontrolü
-            if (_loadingFailed)
+            // Step 2: PlayerManager'a gemi seç
+            ShowLoadingMessage("Gemi bilgileri yükleniyor...", 0.4f);
+            if (PlayerManager.Instance != null)
             {
-                ShowErrorAndReturn(_loadingErrorMessage);
-                yield break;
+                var ship = PlayerManager.Instance.GetShipById(shipId);
+                if (ship != null)
+                {
+                    PlayerManager.Instance.SetActiveShip(ship);
+                    DebugLog("✅ Gemi PlayerManager'a ayarlandı");
+                }
+                else
+                {
+                    _loadingFailed = true;
+                    _loadingErrorMessage = "Gemi bulunamadı!";
+                    ShowErrorAndReturn(_loadingErrorMessage);
+                    yield break;
+                }
             }
 
             yield return new WaitForSeconds(stepDuration);
 
-            // Step 4: Oyun sahnesini yükle
-            LoadingScreen.Instance?.UpdateLoadingStep("Oyun dünyası yükleniyor...", 0.7f);
+            // Step 3: Oyun sahnesini yükle
+            ShowLoadingMessage("Oyun dünyası yükleniyor...", 0.7f);
             var sceneLoadOperation = SceneManager.LoadSceneAsync(gameSceneName);
             sceneLoadOperation.allowSceneActivation = false;
 
@@ -91,7 +126,7 @@ namespace BarbarosKs.Core
             while (sceneLoadOperation.progress < 0.9f)
             {
                 float progress = 0.7f + (sceneLoadOperation.progress * 0.2f);
-                LoadingScreen.Instance?.SetProgress(progress);
+                ShowLoadingMessage("Oyun dünyası yükleniyor...", progress);
                 yield return null;
             }
 
@@ -99,8 +134,8 @@ namespace BarbarosKs.Core
             sceneLoadOperation.allowSceneActivation = true;
             yield return new WaitUntil(() => sceneLoadOperation.isDone);
 
-            // Step 5: Sunucuya bağlan
-            LoadingScreen.Instance?.UpdateLoadingStep("Sunucuya bağlanılıyor...", 0.9f);
+            // Step 4: Sunucuya bağlan
+            ShowLoadingMessage("Sunucuya bağlanılıyor...", 0.9f);
             yield return new WaitForSeconds(0.5f); // Sahnenin tam yüklenmesi için kısa bekleme
 
             // NetworkManager'ı bulup bağlantıyı başlat
@@ -121,26 +156,26 @@ namespace BarbarosKs.Core
 
                 if (networkManager.IsConnected)
                 {
-                    Debug.Log("[LoadingManager] Sunucuya başarıyla bağlanıldı!");
+                    DebugLog("✅ Sunucuya başarıyla bağlanıldı!");
                 }
                 else
                 {
-                    Debug.LogWarning("[LoadingManager] Sunucu bağlantısı zaman aşımına uğradı, ama oyun devam ediyor.");
+                    DebugLog("⚠️ Sunucu bağlantısı zaman aşımına uğradı, ama oyun devam ediyor.");
                 }
             }
             else
             {
-                Debug.LogWarning("[LoadingManager] NetworkManager bulunamadı!");
+                DebugLog("⚠️ NetworkManager bulunamadı!");
             }
 
-            // Step 6: Tamamlandı
-            LoadingScreen.Instance?.UpdateLoadingStep("Hazır!", 1.0f);
+            // Step 5: Tamamlandı
+            ShowLoadingMessage("Hazır!", 1.0f);
             yield return new WaitForSeconds(0.5f);
 
             // Loading ekranını gizle
-            LoadingScreen.Instance?.HideLoading();
+            HideLoadingMessage();
 
-            Debug.Log("[LoadingManager] Loading süreci başarıyla tamamlandı!");
+            DebugLog("✅ Loading süreci başarıyla tamamlandı!");
         }
 
         /// <summary>
@@ -164,7 +199,7 @@ namespace BarbarosKs.Core
             // Eğer beklenmeyen bir hata oluştuysa
             if (hasError)
             {
-                Debug.LogError($"[LoadingManager] Wrapper: {errorMessage}");
+                Debug.LogError($"❌ LoadingManager Wrapper: {errorMessage}");
                 ShowErrorAndReturn("Beklenmeyen bir hata oluştu. Lütfen tekrar deneyin.");
             }
         }
@@ -214,6 +249,13 @@ namespace BarbarosKs.Core
         /// </summary>
         private IEnumerator SetActiveShipCoroutine(Guid shipId)
         {
+            // ApiManager kontrolü
+            if (ApiManager.Instance == null)
+            {
+                DebugLog("⚠️ ApiManager bulunamadı, API çağrısı atlanıyor");
+                yield break;
+            }
+
             // Async metodu background'da çalıştır
             var setActiveTask = ApiManager.Instance.SetActiveShip(shipId);
 
@@ -226,7 +268,7 @@ namespace BarbarosKs.Core
             if (setActiveTask.IsFaulted)
             {
                 string errorMessage = setActiveTask.Exception?.GetBaseException().Message ?? "Bilinmeyen hata";
-                Debug.LogError($"[LoadingManager] SetActiveShip API hatası: {errorMessage}");
+                Debug.LogError($"❌ SetActiveShip API hatası: {errorMessage}");
                 _loadingFailed = true;
                 _loadingErrorMessage = "Gemi seçilemedi. Lütfen tekrar deneyin.";
                 yield break;
@@ -236,60 +278,46 @@ namespace BarbarosKs.Core
 
             if (!result)
             {
-                Debug.LogError("[LoadingManager] Aktif gemi ayarlanamadı!");
+                Debug.LogError("❌ Aktif gemi ayarlanamadı!");
                 _loadingFailed = true;
                 _loadingErrorMessage = "Gemi seçilemedi. Lütfen tekrar deneyin.";
                 yield break;
             }
 
-            Debug.Log("[LoadingManager] SetActiveShip başarılı!");
+            DebugLog("✅ SetActiveShip başarılı!");
         }
 
-        /// <summary>
-        /// GetShipDetails API çağrısını coroutine olarak sarmalayan metod
-        /// </summary>
-        private IEnumerator GetShipDetailsCoroutine(Guid shipId)
+        #region UI Helpers
+
+        private void ShowLoadingMessage(string message, float progress)
         {
-            // Async metodu background'da çalıştır
-            var getDetailsTask = ApiManager.Instance.GetShipDetails(shipId);
-
-            // Task tamamlanana kadar bekle
-            while (!getDetailsTask.IsCompleted)
+            // LoadingScreen sistemini kullan
+            var loadingScreen = FindObjectOfType<LoadingScreen>();
+            if (loadingScreen != null)
             {
-                yield return null;
+                loadingScreen.UpdateProgress(progress, progress >= 1.0f);
+                DebugLog($"📊 Loading: {message} ({progress * 100:F0}%)");
             }
-
-            if (getDetailsTask.IsFaulted)
+            else
             {
-                string errorMessage = getDetailsTask.Exception?.GetBaseException().Message ?? "Bilinmeyen hata";
-                Debug.LogError($"[LoadingManager] GetShipDetails API hatası: {errorMessage}");
-                _loadingFailed = true;
-                _loadingErrorMessage = "Gemi bilgileri alınamadı. Lütfen tekrar deneyin.";
-                yield break;
+                DebugLog($"📊 Loading (no UI): {message} ({progress * 100:F0}%)");
             }
+        }
 
-            var shipDetails = getDetailsTask.Result;
-
-            if (shipDetails == null)
+        private void HideLoadingMessage()
+        {
+            var loadingScreen = FindObjectOfType<LoadingScreen>();
+            if (loadingScreen != null)
             {
-                Debug.LogError("[LoadingManager] Gemi detayları alınamadı!");
-                _loadingFailed = true;
-                _loadingErrorMessage = "Gemi bilgileri alınamadı. Lütfen tekrar deneyin.";
-                yield break;
+                loadingScreen.CompleteLoading();
             }
-
-            // Step 3: PlayerDataManager'a verileri yükle
-            LoadingScreen.Instance?.UpdateLoadingStep("Veriler hazırlanıyor...", 0.5f);
-            PlayerDataManager.Instance.LoadActiveShipDetails(shipDetails);
-
-            Debug.Log("[LoadingManager] GetShipDetails başarılı!");
         }
 
         private void ShowErrorAndReturn(string errorMessage)
         {
-            Debug.LogError($"[LoadingManager] Hata: {errorMessage}");
+            Debug.LogError($"❌ LoadingManager Hata: {errorMessage}");
 
-            LoadingScreen.Instance?.UpdateLoadingStep($"Hata: {errorMessage}", 0f);
+            ShowLoadingMessage($"Hata: {errorMessage}", 0f);
 
             // 3 saniye sonra loading'i gizle ve gemi seçim ekranına dön
             StartCoroutine(HideLoadingAfterDelay(3f));
@@ -298,11 +326,71 @@ namespace BarbarosKs.Core
         private IEnumerator HideLoadingAfterDelay(float delay)
         {
             yield return new WaitForSeconds(delay);
-            LoadingScreen.Instance?.HideLoading();
+            HideLoadingMessage();
 
-            // Gemi seçim ekranına geri dön
-            SceneManager.LoadScene("SelectShipScene");
+            // SceneController varsa onu kullan
+            if (SceneController.Instance != null)
+            {
+                SceneController.Instance.LoadShipSelection();
+            }
+            else
+            {
+                // Fallback
+                SceneManager.LoadScene("SelectShipScene");
+            }
         }
+
+        #endregion
+
+        #region Debug Methods
+
+        private void DebugLog(string message)
+        {
+            if (verboseLogging)
+            {
+                Debug.Log($"[LoadingManager] {message}");
+            }
+        }
+
+        [ContextMenu("Debug: Test Loading Process")]
+        private void DebugTestLoadingProcess()
+        {
+            if (PlayerManager.Instance?.HasActiveShip == true)
+            {
+                var shipId = PlayerManager.Instance.ActiveShip.Id;
+                DebugLog($"🧪 Test loading process başlatılıyor: {shipId}");
+                #pragma warning disable CS0618 // Type or member is obsolete
+                StartShipLoadingProcess(shipId);
+                #pragma warning restore CS0618 // Type or member is obsolete
+            }
+            else
+            {
+                DebugLog("❌ Test için aktif gemi gerekli");
+            }
+        }
+
+        [ContextMenu("Debug: Show Manager Status")]
+        private void DebugShowManagerStatus()
+        {
+            Debug.Log("=== LOADING MANAGER STATUS ===");
+            Debug.Log($"LoadingManager Instance: {(Instance != null ? "ACTIVE" : "NULL")}");
+            Debug.Log($"SceneController Instance: {(SceneController.Instance != null ? "ACTIVE" : "NULL")}");
+            Debug.Log($"PlayerManager Instance: {(PlayerManager.Instance != null ? "ACTIVE" : "NULL")}");
+            Debug.Log($"ApiManager Instance: {(ApiManager.Instance != null ? "ACTIVE" : "NULL")}");
+            Debug.Log($"NetworkManager Instance: {(NetworkManager.Instance != null ? "ACTIVE" : "NULL")}");
+            
+            if (PlayerManager.Instance != null)
+            {
+                Debug.Log($"Has Player Data: {PlayerManager.Instance.HasPlayerData}");
+                Debug.Log($"Has Active Ship: {PlayerManager.Instance.HasActiveShip}");
+                if (PlayerManager.Instance.HasActiveShip)
+                {
+                    Debug.Log($"Active Ship: {PlayerManager.Instance.ActiveShip.Name}");
+                }
+            }
+        }
+
+        #endregion
 
         private void OnDestroy()
         {

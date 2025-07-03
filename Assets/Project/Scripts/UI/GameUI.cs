@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using BarbarosKs.Player;
 using BarbarosKs.Shared.DTOs;
+using BarbarosKs.Core;
 using Project.Scripts.Network;
 using TMPro;
 using UnityEngine;
@@ -154,7 +155,7 @@ namespace BarbarosKs.UI
         public void ShowMessage(string message, float duration = 3f)
         {
             Debug.Log($"📢 [UI MESSAGE] {message}");
-            // İleride bir message box sistem eklenebilir
+            ShowNotification(message, duration);
         }
 
         private void OnEnable()
@@ -167,7 +168,6 @@ namespace BarbarosKs.UI
                 NetworkManager.Instance.OnEntitySpawned += HandleEntitySpawned;
                 NetworkManager.Instance.OnEntityDespawned += HandleEntityDespawned;
                 NetworkManager.Instance.OnHealthUpdate += HandleHealthUpdate;
-                // NetworkManager.Instance.OnActionFailed += HandleActionFailed; // Gelecekte eklenebilir
             }
         }
 
@@ -183,7 +183,6 @@ namespace BarbarosKs.UI
                 NetworkManager.Instance.OnEntitySpawned -= HandleEntitySpawned;
                 NetworkManager.Instance.OnEntityDespawned -= HandleEntityDespawned;
                 NetworkManager.Instance.OnHealthUpdate -= HandleHealthUpdate;
-                // NetworkManager.Instance.OnActionFailed -= HandleActionFailed;
             }
         }
 
@@ -225,56 +224,96 @@ namespace BarbarosKs.UI
 
         #region Hedef İşaretçi ve Bildirim Sistemleri
 
-        // Bu metotlar ağdan bağımsız olduğu için aynı kalıyor.
         public void AddTrackedTarget(Transform target)
         {
-            /* ... */
+            if (target == null || _trackedTargets.Contains(target)) return;
+            
+            _trackedTargets.Add(target);
+            Debug.Log($"🎯 Target added to tracking: {target.name}");
         }
 
         public void RemoveTrackedTarget(Transform target)
         {
-            /* ... */
+            if (target == null || !_trackedTargets.Contains(target)) return;
+            
+            _trackedTargets.Remove(target);
+            
+            // Marker'ı kaldır
+            if (_targetMarkers.TryGetValue(target, out GameObject marker))
+            {
+                Destroy(marker);
+                _targetMarkers.Remove(target);
+            }
+            
+            Debug.Log($"🎯 Target removed from tracking: {target.name}");
         }
 
         private void UpdateTargetMarkers()
         {
-            /* ... */
+            foreach (var target in _trackedTargets)
+            {
+                if (target == null) continue;
+                
+                // Marker'ın var olup olmadığını kontrol et
+                if (!_targetMarkers.TryGetValue(target, out GameObject marker))
+                {
+                    // Yeni marker oluştur
+                    if (targetMarkerPrefab != null && targetMarkersContainer != null)
+                    {
+                        marker = Instantiate(targetMarkerPrefab, targetMarkersContainer);
+                        _targetMarkers[target] = marker;
+                    }
+                }
+                
+                // Marker pozisyonunu güncelle
+                if (marker != null && _mainCamera != null)
+                {
+                    Vector3 screenPos = _mainCamera.WorldToScreenPoint(target.position);
+                    marker.transform.position = screenPos;
+                    marker.SetActive(screenPos.z > 0); // Kameranın arkasındaysa gizle
+                }
+            }
         }
 
         public void ShowNotification(string message, float duration = 0)
         {
-            /* ... */
+            if (notificationPanel == null || notificationText == null) return;
+            
+            notificationPanel.SetActive(true);
+            notificationText.text = message;
+            
+            float displayDuration = duration > 0 ? duration : notificationDuration;
+            StartCoroutine(HideNotificationAfterDelay(displayDuration));
+            
+            Debug.Log($"📢 [NOTIFICATION] {message}");
         }
 
         private IEnumerator HideNotificationAfterDelay(float delay)
         {
-            delay = Mathf.Max(0, delay);
             yield return new WaitForSeconds(delay);
-            notificationPanel.SetActive(false);
+            if (notificationPanel != null)
+                notificationPanel.SetActive(false);
         }
 
         #endregion
 
-        #region Ağ Olay İşleyicileri (Yenilendi)
+        #region Ağ Olay İşleyicileri
 
         /// <summary>
         ///     Sunucudan bir varlığın canının değiştiği bilgisi geldiğinde çalışır.
         /// </summary>
         private void HandleHealthUpdate(S2C_HealthUpdateData data)
         {
-            // Eğer canı değişen bizim yerel oyuncumuz ise, UI'ı güncelle.
-            // NOT: PlayerHealth script'i bu güncellemeyi zaten kendisi yapmalı ve OnHealthChanged
-            // olayını tetiklemeli. Bu yüzden bu metot şimdilik boş kalabilir veya
-            // sadece hasar göstergeleri (damage numbers) için kullanılabilir.
-
-            var localPlayerShipId = GameManager.Instance.ActiveShip?.Id.ToString();
+            // PlayerManager üzerinden local player ID'sini al
+            if (PlayerManager.Instance?.ActiveShip == null) return;
+            
+            var localPlayerShipId = PlayerManager.Instance.ActiveShip.Id.ToString();
             if (data.EntityId == localPlayerShipId)
             {
                 // Yerel oyuncunun PlayerHealth script'i bu güncellemeyi zaten alıp
                 // OnHealthChanged event'ini tetikleyeceği için burada tekrar UI güncellemeye gerek yok.
+                Debug.Log($"💚 [UI] Local player health update received: {data.CurrentHealth}");
             }
-            // Başka bir oyuncu hasar aldığında ekranda "100!" gibi bir hasar sayısı göstermek
-            // için bu olayı kullanabilirsiniz.
         }
 
         /// <summary>
@@ -284,12 +323,17 @@ namespace BarbarosKs.UI
         {
             // Gelen varlığın bir oyuncu gemisi olup olmadığını ve kendimize ait olup olmadığını kontrol et
             bool isPlayerShip = data.Entity.PrefabType.StartsWith("PlayerShip");
-            var isOurself = data.Entity.OwnerPlayerId == GameManager.Instance.LocalPlayerId?.ToString();
+            
+            // PlayerManager üzerinden local player ID'sini al
+            string localPlayerId = PlayerManager.Instance?.GetPlayerId()?.ToString();
+            var isOurself = data.Entity.OwnerPlayerId == localPlayerId;
 
             if (isPlayerShip && !isOurself)
+            {
                 // Varlığın özelliklerinden oyuncu adını alalım.
                 if (data.Entity.Properties.TryGetValue("playerUsername", out object usernameObj))
                     ShowNotification($"{usernameObj} oyuna katıldı!");
+            }
         }
 
         /// <summary>
@@ -297,9 +341,6 @@ namespace BarbarosKs.UI
         /// </summary>
         private void HandleEntityDespawned(S2C_EntityDespawnData data)
         {
-            // TODO: Ayrılan oyuncunun ismini bulup göstermek için NetworkObjectSpawner'dan
-            // veya başka bir yönetici script'ten destek alınabilir.
-            // Şimdilik genel bir mesaj gösteriyoruz.
             ShowNotification("Bir oyuncu oyundan ayrıldı.");
         }
 
