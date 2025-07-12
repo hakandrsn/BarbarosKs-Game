@@ -93,7 +93,7 @@ public class ApiManager : MonoBehaviour
         {
             var response = await PostRequest<ApiResponseDto<object>>(endpoint, new { });
             
-            if (response != null && response.Success)
+            if (response is { Success: true })
             {
                 Debug.Log($"✅ Aktif gemi sunucuda ayarlandı: {shipId}");
                 return true;

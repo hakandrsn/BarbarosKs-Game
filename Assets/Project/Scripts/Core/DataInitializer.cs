@@ -12,17 +12,17 @@ public class DataInitializer : MonoBehaviour
 {
     public static DataInitializer Instance { get; private set; }
 
-    [Header("Yükleme Sırası")]
-    [SerializeField] private bool _loadCannonballsOnStart = true;
+    [Header("Yükleme Sırası")] [SerializeField]
+    private bool _loadCannonballsOnStart = true;
+
     [SerializeField] private bool _loadItemsOnStart = false; // Gelecekte kullanılacak
     [SerializeField] private bool _autoRetryOnFailure = true;
     [SerializeField] private int _maxRetryAttempts = 3;
     [SerializeField] private float _retryDelaySeconds = 2f;
 
-    [Header("Durum")]
-    [SerializeField] private bool _isInitializing;
+    [Header("Durum")] [SerializeField] private bool _isInitializing;
     [SerializeField] private bool _isInitialized;
-    [SerializeField] private string _currentStatus = "Bekleniyor";
+    [SerializeField] private string _currentStatus = "PENDING";
 
     // Events
     public static event Action OnInitializationStarted;
@@ -60,17 +60,16 @@ public class DataInitializer : MonoBehaviour
     private void Start()
     {
         // Scene'e göre otomatik başlatma
-        string currentScene = SceneManager.GetActiveScene().name;
-        
-        if (currentScene == "CreateShip" || currentScene == "FisherSea")
-        {
-            Debug.Log($"🎮 DataInitializer: {currentScene} scene'inde otomatik başlatma");
-            _ = StartDataInitializationAsync();
-        }
+        var currentScene = SceneManager.GetActiveScene().name;
+
+        if (currentScene is not ("CreateShip" or "FisherSea")) return;
+        Debug.Log($"🎮 DataInitializer: {currentScene} scene'inde otomatik başlatma");
+        _ = StartDataInitializationAsync();
     }
 
     #region Public Methods
 
+    // ReSharper disable Unity.PerformanceAnalysis
     /// <summary>
     /// Veri yükleme işlemini başlatır
     /// </summary>
@@ -78,17 +77,17 @@ public class DataInitializer : MonoBehaviour
     {
         if (_isInitializing)
         {
-            Debug.LogWarning("⚠️ DataInitializer: Başlatma zaten devam ediyor!");
+            _currentStatus = "LOADING";
             return false;
         }
 
         if (_isInitialized)
         {
-            Debug.Log("✅ DataInitializer: Veriler zaten yüklü");
+            _currentStatus = "ALREADY_EXISTS";
             return true;
         }
 
-        Debug.Log("🚀 DataInitializer: Veri başlatma işlemi başladı");
+        _currentStatus = "PENDING";
         _isInitializing = true;
         _isInitialized = false;
         OnInitializationStarted?.Invoke();
@@ -96,24 +95,23 @@ public class DataInitializer : MonoBehaviour
         try
         {
             await InitializeGameDataSystems();
-            
+
             _isInitialized = true;
-            _currentStatus = "Tamamlandı";
             OnProgressUpdated?.Invoke(_currentStatus, 1.0f);
             OnInitializationCompleted?.Invoke();
-            
-            Debug.Log("🎉 DataInitializer: Tüm veriler başarıyla yüklendi!");
+            _currentStatus = "DONE";
+
             return true;
         }
         catch (Exception ex)
         {
             var errorMsg = $"Veri yükleme hatası: {ex.Message}";
             Debug.LogError($"❌ DataInitializer: {errorMsg}");
-            
+
             _currentStatus = $"Hata: {ex.Message}";
             OnProgressUpdated?.Invoke(_currentStatus, 0f);
             OnInitializationFailed?.Invoke(errorMsg);
-            
+
             return false;
         }
         finally
@@ -128,10 +126,10 @@ public class DataInitializer : MonoBehaviour
     public async Task<bool> ResetAndReinitializeAsync()
     {
         Debug.Log("🔄 DataInitializer: Yeniden başlatma...");
-        
+
         // Mevcut verileri temizle
         ClearAllData();
-        
+
         // Yeniden başlat
         return await StartDataInitializationAsync();
     }
@@ -143,18 +141,18 @@ public class DataInitializer : MonoBehaviour
     {
         _isInitialized = false;
         _currentStatus = "Temizlendi";
-        
+
         // Veri sistemlerini temizle
         if (GameDataManager.Instance != null)
         {
             GameDataManager.Instance.ClearAllData();
         }
-        
+
         if (CannonballService.Instance != null)
         {
             CannonballService.Instance.ClearCache();
         }
-        
+
         Debug.Log("🧹 DataInitializer: Tüm veriler temizlendi");
     }
 
@@ -176,7 +174,7 @@ public class DataInitializer : MonoBehaviour
             currentStep++;
             _currentStatus = "Gülle verileri yükleniyor...";
             OnProgressUpdated?.Invoke(_currentStatus, currentStep / totalSteps);
-            
+
             await LoadCannonballsWithRetry();
         }
 
@@ -186,7 +184,7 @@ public class DataInitializer : MonoBehaviour
             currentStep++;
             _currentStatus = "Item verileri yükleniyor...";
             OnProgressUpdated?.Invoke(_currentStatus, currentStep / totalSteps);
-            
+
             // await LoadItemsWithRetry();
             Debug.Log("📦 Item loading henüz implement edilmedi");
         }
@@ -197,7 +195,7 @@ public class DataInitializer : MonoBehaviour
             currentStep++;
             _currentStatus = "Oyuncu verileri yükleniyor...";
             OnProgressUpdated?.Invoke(_currentStatus, currentStep / totalSteps);
-            
+
             await LoadPlayerSpecificData();
         }
 
@@ -205,7 +203,7 @@ public class DataInitializer : MonoBehaviour
         currentStep++;
         _currentStatus = "Sistem kontrolü...";
         OnProgressUpdated?.Invoke(_currentStatus, currentStep / totalSteps);
-        
+
         await WaitForGameDataManagerReady();
     }
 
@@ -214,14 +212,14 @@ public class DataInitializer : MonoBehaviour
     /// </summary>
     private async Task LoadCannonballsWithRetry()
     {
-        for (int attempt = 1; attempt <= _maxRetryAttempts; attempt++)
+        for (var attempt = 1; attempt <= _maxRetryAttempts; attempt++)
         {
             try
             {
                 Debug.Log($"🔄 DataInitializer: Gülle verileri yükleniyor (Deneme {attempt}/{_maxRetryAttempts})");
-                
+
                 var cannonballs = await CannonballService.Instance.GetAllCannonballsAsync(forceRefresh: true);
-                
+
                 if (cannonballs != null && cannonballs.Count > 0)
                 {
                     Debug.Log($"✅ DataInitializer: {cannonballs.Count} gülle verisi yüklendi");
@@ -235,12 +233,12 @@ public class DataInitializer : MonoBehaviour
             catch (Exception ex)
             {
                 Debug.LogWarning($"⚠️ DataInitializer: Gülle yükleme hatası (Deneme {attempt}): {ex.Message}");
-                
+
                 if (attempt >= _maxRetryAttempts)
                 {
                     throw new Exception($"Gülle verileri {_maxRetryAttempts} denemede yüklenemedi: {ex.Message}");
                 }
-                
+
                 if (_autoRetryOnFailure && attempt < _maxRetryAttempts)
                 {
                     Debug.Log($"⏳ DataInitializer: {_retryDelaySeconds}s beklenip tekrar denenecek...");
@@ -260,7 +258,7 @@ public class DataInitializer : MonoBehaviour
             // Player cannonballs'ı yükle
             var playerCannonballs = await CannonballService.Instance.GetPlayerCannonballsAsync();
             Debug.Log($"✅ DataInitializer: {playerCannonballs.Count} oyuncu güllesi yüklendi");
-            
+
             // Gelecekte: Player items, achievements vb.
         }
         catch (Exception ex)
@@ -277,18 +275,18 @@ public class DataInitializer : MonoBehaviour
     {
         int waitCount = 0;
         const int maxWait = 50; // 5 saniye max
-        
+
         while (!GameDataManager.Instance.IsInitialized && waitCount < maxWait)
         {
             await Task.Delay(100); // 100ms bekle
             waitCount++;
         }
-        
+
         if (!GameDataManager.Instance.IsInitialized)
         {
             throw new Exception("GameDataManager 5 saniyede hazır olmadı");
         }
-        
+
         Debug.Log("✅ DataInitializer: GameDataManager hazır");
     }
 
@@ -298,11 +296,11 @@ public class DataInitializer : MonoBehaviour
     private float GetTotalSteps()
     {
         float steps = 1; // System kontrolü her zaman
-        
+
         if (_loadCannonballsOnStart) steps++;
         if (_loadItemsOnStart) steps++;
         if (ApiManager.Instance.IsLoggedIn) steps++; // Player data
-        
+
         return steps;
     }
 
@@ -329,4 +327,4 @@ public class DataInitializer : MonoBehaviour
     }
 
     #endregion
-} 
+}

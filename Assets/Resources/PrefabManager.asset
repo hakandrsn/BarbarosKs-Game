@@ -9,9 +9,28 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9c86c1c8c1c1c1c1c1c1c1c1c1c1c1c2, type: 3}
+  m_Script: {fileID: 11500000, guid: 73b774255c1a42e4bb7956cadefe1f4e, type: 3}
   m_Name: PrefabManager
-  cannonballPrefabs: []
+  m_EditorClassIdentifier: 
+  cannonballPrefabs:
+  - id: 1
+    typeCode: 120001
+    displayName: Standard Iron Cannonball
+    prefab: {fileID: 7812893202895217500, guid: 574a2a5ff582ab04a91b2eee06be779c, type: 3}
+    isNetworkEnabled: 1
+    baseDamage: 34
+    baseSpeed: 24
+    baseRange: 100
+    description: "naber g\xFClle"
+  - id: 2
+    typeCode: 120002
+    displayName: 
+    prefab: {fileID: 2791600215610794236, guid: edfabd324c3a0c34985b4d171059bc53, type: 3}
+    isNetworkEnabled: 0
+    baseDamage: 34
+    baseSpeed: 23
+    baseRange: 133
+    description: 
   shipPrefabs: []
   hitEffectPrefab: {fileID: 0}
   explosionEffectPrefab: {fileID: 0}
@@ -20,4 +39,4 @@ MonoBehaviour:
   loadingScreenPrefab: {fileID: 0}
   notificationPrefab: {fileID: 0}
   playerPrefab: {fileID: 0}
-  networkShipPrefab: {fileID: 0} 
+  networkShipPrefab: {fileID: 0}

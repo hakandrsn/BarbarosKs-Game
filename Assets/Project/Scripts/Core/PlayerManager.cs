@@ -72,23 +72,14 @@ namespace BarbarosKs.Core
                 return;
             }
 
-            if (characterData.PlayerProfile == null)
-            {
-                Debug.LogError("❌ [PLAYER MANAGER] PlayerProfile null!");
-                return;
-            }
-
             // Player profile'ı kaydet
             playerProfile = characterData.PlayerProfile;
             DebugLog($"✅ Player profile yüklendi: {playerProfile.Username}");
 
             // Ships listesini kaydet
             ownedShips.Clear();
-            if (characterData.Ships != null)
-            {
-                ownedShips.AddRange(characterData.Ships);
-                DebugLog($"✅ {ownedShips.Count} gemi yüklendi");
-            }
+            ownedShips.AddRange(characterData.Ships);
+            DebugLog($"✅ {ownedShips.Count} gemi yüklendi");
 
             // Events
             OnPlayerDataLoaded?.Invoke(playerProfile);

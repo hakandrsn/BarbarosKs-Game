@@ -13,15 +13,26 @@ using BarbarosKs.Shared.DTOs;
 
 namespace Project.Scripts.Network
 {
+    /// <summary>
+    /// Modern MMO NetworkManager - GameServer ile tam entegrasyon
+    /// Real-time stats, ammo, combat ve MMO features destekler
+    /// </summary>
     public class NetworkManager : MonoBehaviour
     {
-        [Header("Ağ Ayarları")] 
-        [SerializeField] private string serverIP = "127.0.0.1";
+        [Header("Ağ Ayarları")] [SerializeField]
+        private string serverIP = "127.0.0.1";
+
         [SerializeField] private int serverPort = 9999;
-        
-        [Header("Debug")]
-        [SerializeField] private bool verboseLogging = true;
-        
+
+        [Header("Debug")] [SerializeField] private bool verboseLogging = true;
+
+        [Header("MMO Features")] [SerializeField]
+        private bool enableRealTimeStats = true;
+
+        [SerializeField] private bool enableAmmoSystem = true;
+        [SerializeField] private bool enableCombatSystem = true;
+        [SerializeField] private float statsUpdateInterval = 1f;
+
         private readonly Queue<string> _incomingMessages = new();
         private readonly object _messageLock = new();
         private readonly Dictionary<long, float> _pingTimestamps = new();
@@ -30,15 +41,25 @@ namespace Project.Scripts.Network
         private float _connectionStartTime;
         private NetworkStream _stream;
         private TcpClient _tcpClient;
-        
+
+        // Modern MMO Data
+
+        // Real-time update timers
+        private float _lastStatsUpdateTime;
+        private float _lastAmmoUpdateTime;
+
         public static NetworkManager Instance { get; private set; }
 
+        // Modern Properties
         public bool IsConnected { get; private set; }
         public int SentPacketCount { get; private set; }
         public int ReceivedPacketCount { get; private set; }
         public float ConnectionUptime => IsConnected ? Time.time - _connectionStartTime : 0f;
         public float LastPingTime { get; private set; }
         public string ServerEndpoint => $"{serverIP}:{serverPort}";
+        public PlayerData LocalPlayerData { get; private set; }
+
+        public Dictionary<Guid, PlayerData> RemotePlayers { get; } = new();
 
         private void Awake()
         {
@@ -46,7 +67,8 @@ namespace Project.Scripts.Network
             {
                 Instance = this;
                 DontDestroyOnLoad(gameObject);
-                DebugLog("✅ NetworkManager initialized");
+                LocalPlayerData = new PlayerData();
+                DebugLog("✅ Modern MMO NetworkManager initialized");
             }
             else
             {
@@ -57,6 +79,27 @@ namespace Project.Scripts.Network
         private void Update()
         {
             ProcessMessageQueue();
+
+            // Real-time updates
+            if (IsConnected && enableRealTimeStats)
+            {
+                HandleRealTimeUpdates();
+            }
+        }
+
+        private void HandleRealTimeUpdates()
+        {
+            // Stats update
+            if (Time.time - _lastStatsUpdateTime >= statsUpdateInterval)
+            {
+                BarbarosKs.Client.Services.ClientServiceManager.Instance.RequestStatsUpdate();
+                _lastStatsUpdateTime = Time.time;
+            }
+
+            // Ammo update
+            if (!enableAmmoSystem || !(Time.time - _lastAmmoUpdateTime >= 0.5f)) return;
+            BarbarosKs.Client.Services.ClientServiceManager.Instance.RequestAmmoUpdate();
+            _lastAmmoUpdateTime = Time.time;
         }
 
         private void OnEnable()
@@ -80,27 +123,41 @@ namespace Project.Scripts.Network
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
             DebugLog($"==== SAHNE YÜKLENDİ: {scene.name} ====");
-            
+
             // PlayerManager durumunu kontrol et
             bool playerManagerExists = PlayerManager.Instance != null;
             bool hasPlayerData = playerManagerExists && PlayerManager.Instance.HasPlayerData;
             bool hasActiveShip = playerManagerExists && PlayerManager.Instance.HasActiveShip;
-            
+
             DebugLog($"PlayerManager Instance: {(playerManagerExists ? "MEVCUT" : "NULL")}");
             if (playerManagerExists)
             {
-                DebugLog($"Player Data: {(hasPlayerData ? $"MEVCUT - {PlayerManager.Instance.PlayerProfile.Username}" : "NULL")}");
-                DebugLog($"Active Ship: {(hasActiveShip ? $"MEVCUT - {PlayerManager.Instance.ActiveShip.Name} (Lv.{PlayerManager.Instance.ActiveShip.Level})" : "NULL")}");
+                DebugLog(
+                    $"Player Data: {(hasPlayerData ? $"MEVCUT - {PlayerManager.Instance.PlayerProfile.Username}" : "NULL")}");
+                DebugLog(
+                    $"Active Ship: {(hasActiveShip ? $"MEVCUT - {PlayerManager.Instance.ActiveShip.Name} (Lv.{PlayerManager.Instance.ActiveShip.Level})" : "NULL")}");
             }
-            
+
             bool apiManagerExists = ApiManager.Instance != null;
             string authToken = ApiManager.Instance?.GetAuthToken();
             DebugLog($"ApiManager Instance: {(apiManagerExists ? "MEVCUT" : "NULL")}");
-            DebugLog($"Auth Token: {(string.IsNullOrEmpty(authToken) ? "NULL/BOŞ" : $"MEVCUT ({authToken.Length} karakter)")}");
-            
+            DebugLog(
+                $"Auth Token: {(string.IsNullOrEmpty(authToken) ? "NULL/BOŞ" : $"MEVCUT ({authToken.Length} karakter)")}");
+
             if (scene.name == "FisherSea" && hasActiveShip)
             {
-                DebugLog("✅ Tüm koşullar sağlandı. NetworkManager oyun sunucusuna bağlanıyor...");
+                DebugLog("✅ Tüm koşullar sağlandı. Modern MMO NetworkManager oyun sunucusuna bağlanıyor...");
+
+                // Local player data'yı hazırla
+                if (hasPlayerData)
+                {
+                    LocalPlayerData.PlayerId = PlayerManager.Instance.PlayerProfile.Id;
+                    LocalPlayerData.Username = PlayerManager.Instance.PlayerProfile.Username;
+                    LocalPlayerData.ShipId = PlayerManager.Instance.ActiveShip.Id;
+                    DebugLog(
+                        $"Local player data hazırlandı: {LocalPlayerData.Username} - Ship: {LocalPlayerData.ShipId}");
+                }
+
                 ConnectToGameServer();
             }
             else if (scene.name == "FisherSea")
@@ -114,7 +171,7 @@ namespace Project.Scripts.Network
             }
         }
 
-        #region Public Events
+        #region Modern MMO Events
 
         /// <summary>
         /// Gerçek zamanlı oyun sunucusuna başarıyla bağlandığında tetiklenir.
@@ -154,7 +211,7 @@ namespace Project.Scripts.Network
         /// <summary>
         /// Oyuncunun gönderdiği aksiyon başarılı olduğunda tetiklenir.
         /// </summary>
-        public event Action<object> OnActionSuccess; // object: sunucudan gelen action data'sı
+        public event Action<object> OnActionSuccess;
 
         /// <summary>
         /// Oyuncunun gönderdiği aksiyon başarısız olduğunda tetiklenir.
@@ -165,6 +222,32 @@ namespace Project.Scripts.Network
         /// Sunucudan gülle spawn mesajı geldiğinde tetiklenir.
         /// </summary>
         public event Action<S2C_ProjectileSpawnData> OnProjectileSpawn;
+
+        // Modern MMO Events
+        /// <summary>
+        /// Real-time ship stats güncellemesi geldiğinde tetiklenir.
+        /// </summary>
+        public event Action<ShipStatsDto> OnShipStatsUpdate;
+
+        /// <summary>
+        /// Ammo durumu güncellemesi geldiğinde tetiklenir.
+        /// </summary>
+        public event Action<AmmoStatus> OnAmmoStatusUpdate;
+
+        /// <summary>
+        /// Combat event geldiğinde tetiklenir.
+        /// </summary>
+        public event Action<CombatResult> OnCombatEvent;
+
+        /// <summary>
+        /// Player spawned event
+        /// </summary>
+        public event Action<PlayerData> OnPlayerSpawned;
+
+        /// <summary>
+        /// Player despawned event
+        /// </summary>
+        public event Action<Guid> OnPlayerDespawned;
 
         #endregion
 
@@ -178,7 +261,7 @@ namespace Project.Scripts.Network
                 _clientReceiveThread = new Thread(ReceiveMessages) { IsBackground = true };
                 _tcpClient = new TcpClient();
                 _tcpClient.BeginConnect(serverIP, serverPort, OnConnectCallback, null);
-                DebugLog($"🔌 Sunucuya bağlanma başlatıldı: {ServerEndpoint}");
+                DebugLog($"🔌 Modern MMO sunucuya bağlanma başlatıldı: {ServerEndpoint}");
             }
             catch (Exception e)
             {
@@ -191,40 +274,35 @@ namespace Project.Scripts.Network
             try
             {
                 _tcpClient.EndConnect(ar);
-                if (!_tcpClient.Connected) 
-                {
-                    Debug.LogError("❌ TCP bağlantısı başarısız!");
-                    return;
-                }
-
-                DebugLog("✅ TCP bağlantısı başarılı! Mesaj alma thread'i başlatılıyor...");
                 _stream = _tcpClient.GetStream();
-                _clientReceiveThread.Start();
                 IsConnected = true;
+
+                // Main thread'de connection time'ı ayarla
                 _connectionStartTime = Time.time;
-                
-                lock (_messageLock)
-                {
-                    _incomingMessages.Enqueue(JsonConvert.SerializeObject(new GameMessage
-                        { Type = (MessageType)(-1) }));
-                } // Özel içsel mesaj
-                DebugLog("🎉 NetworkManager sunucuya başarıyla bağlandı!");
+
+                _clientReceiveThread?.Start();
+
+                DebugLog("✅ Modern MMO sunucuya bağlandı!");
+
+                // Bağlantı başarılı olduğunda main thread'de event'i tetikle
+                UnityMainThreadDispatcher.Instance.Enqueue(() => { OnConnectedToServer?.Invoke(); });
             }
             catch (Exception e)
             {
-                Debug.LogError($"❌ OnConnectCallback hatası: {e.Message}");
+                Debug.LogError($"❌ Bağlantı callback hatası: {e.Message}");
+                IsConnected = false;
             }
         }
 
         private void ReceiveMessages()
         {
             DebugLog("🔍 ReceiveMessages thread başlatıldı!");
-            
+
             try
             {
                 var buffer = new byte[4096];
                 var messageBuffer = new List<byte>();
-                
+
                 while (IsConnected && _stream != null)
                 {
                     try
@@ -235,31 +313,31 @@ namespace Project.Scripts.Network
                             Debug.LogWarning("❌ Sunucu bağlantısı kapandı!");
                             break;
                         }
-                        
+
                         if (verboseLogging)
                             DebugLog($"📥 {bytesRead} bytes alındı sunucudan");
-                        
+
                         // Okunan byte'ları mesaj buffer'ına ekle
                         for (int i = 0; i < bytesRead; i++)
                         {
                             messageBuffer.Add(buffer[i]);
                         }
-                        
+
                         // Mesaj sınırlayıcılarını kontrol et (\n ile ayrılmış JSON mesajları)
                         var messageData = System.Text.Encoding.UTF8.GetString(messageBuffer.ToArray());
-                        
+
                         // Hem newline hem de '}{ pattern'lerini kontrol et (birbirine yapışık JSON'lar için)
                         var processedMessages = new List<string>();
                         var tempData = messageData;
-                        
+
                         // Önce newline ile ayrılmış mesajları al
                         var newlineMessages = tempData.Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
-                        
+
                         foreach (var msg in newlineMessages)
                         {
                             var trimmedMsg = msg.Trim();
                             if (string.IsNullOrEmpty(trimmedMsg)) continue;
-                            
+
                             // Birbirine yapışık JSON'ları ayır (}{pattern)
                             if (trimmedMsg.Contains("}{"))
                             {
@@ -267,7 +345,7 @@ namespace Project.Scripts.Network
                                 var currentPos = 0;
                                 var braceCount = 0;
                                 var jsonStart = 0;
-                                
+
                                 for (int i = 0; i < trimmedMsg.Length; i++)
                                 {
                                     if (trimmedMsg[i] == '{') braceCount++;
@@ -281,6 +359,7 @@ namespace Project.Scripts.Network
                                             {
                                                 processedMessages.Add(jsonPart);
                                             }
+
                                             jsonStart = i + 1;
                                         }
                                     }
@@ -291,12 +370,12 @@ namespace Project.Scripts.Network
                                 processedMessages.Add(trimmedMsg);
                             }
                         }
-                        
+
                         if (processedMessages.Count > 0)
                         {
                             if (verboseLogging)
                                 DebugLog($"📨 {processedMessages.Count} tam mesaj bulundu");
-                            
+
                             // İşlenen mesajları queue'ye ekle
                             foreach (var message in processedMessages)
                             {
@@ -306,7 +385,7 @@ namespace Project.Scripts.Network
                                     ReceivedPacketCount++;
                                 }
                             }
-                            
+
                             messageBuffer.Clear(); // Buffer'ı temizle
                         }
                     }
@@ -361,7 +440,7 @@ namespace Project.Scripts.Network
                     try
                     {
                         var gameMessage = JsonConvert.DeserializeObject<GameMessage>(rawMessage);
-                        if (gameMessage == null) 
+                        if (gameMessage == null)
                         {
                             Debug.LogError("❌ GameMessage deserialize edilemedi!");
                             continue;
@@ -370,6 +449,7 @@ namespace Project.Scripts.Network
                         // İçsel "Bağlantı Başarılı" mesajı
                         if ((int)gameMessage.Type == -1)
                         {
+                            _connectionStartTime = Time.time; // Ana thread'de set et
                             DebugLog("✅ Bağlantı başarılı mesajı alındı - OnConnectedToServer tetikleniyor");
                             OnConnectedToServer?.Invoke();
                             SendJoinRequest();
@@ -381,30 +461,36 @@ namespace Project.Scripts.Network
                         {
                             DebugLog($"📨 Sunucudan mesaj alındı: {gameMessage.Type}");
                         }
-                        
+
                         switch (gameMessage.Type)
                         {
                             case MessageType.S2C_WorldState:
-                                var worldState = JsonConvert.DeserializeObject<S2C_WorldStateData>(gameMessage.DataJson);
+                                var worldState =
+                                    JsonConvert.DeserializeObject<S2C_WorldStateData>(gameMessage.DataJson);
                                 DebugLog($"🌍 WorldState alındı: {worldState?.Entities?.Count ?? 0} entity");
                                 if (worldState != null) OnWorldStateReceived?.Invoke(worldState);
                                 break;
                             case MessageType.S2C_EntitySpawn:
-                                var spawnData = JsonConvert.DeserializeObject<S2C_EntitySpawnData>(gameMessage.DataJson);
-                                DebugLog($"➕ Entity spawn alındı: {spawnData?.Entity?.PrefabType} ID: {spawnData?.Entity?.EntityId}");
+                                var spawnData =
+                                    JsonConvert.DeserializeObject<S2C_EntitySpawnData>(gameMessage.DataJson);
+                                DebugLog(
+                                    $"➕ Entity spawn alındı: {spawnData?.Entity?.PrefabType} ID: {spawnData?.Entity?.EntityId}");
                                 if (spawnData != null) OnEntitySpawned?.Invoke(spawnData);
                                 break;
                             case MessageType.S2C_EntityDespawn:
-                                var despawnData = JsonConvert.DeserializeObject<S2C_EntityDespawnData>(gameMessage.DataJson);
+                                var despawnData =
+                                    JsonConvert.DeserializeObject<S2C_EntityDespawnData>(gameMessage.DataJson);
                                 DebugLog($"➖ Entity despawn alındı: {despawnData?.EntityId}");
                                 if (despawnData != null) OnEntityDespawned?.Invoke(despawnData);
                                 break;
                             case MessageType.S2C_TransformUpdate:
-                                var transformData = JsonConvert.DeserializeObject<S2C_TransformUpdateData>(gameMessage.DataJson);
+                                var transformData =
+                                    JsonConvert.DeserializeObject<S2C_TransformUpdateData>(gameMessage.DataJson);
                                 if (transformData != null) OnTransformUpdate?.Invoke(transformData);
                                 break;
                             case MessageType.S2C_HealthUpdate:
-                                var healthData = JsonConvert.DeserializeObject<S2C_HealthUpdateData>(gameMessage.DataJson);
+                                var healthData =
+                                    JsonConvert.DeserializeObject<S2C_HealthUpdateData>(gameMessage.DataJson);
                                 if (healthData != null) OnHealthUpdate?.Invoke(healthData);
                                 break;
                             case MessageType.S2C_Pong:
@@ -417,13 +503,16 @@ namespace Project.Scripts.Network
                                 if (actionSuccessData != null) OnActionSuccess?.Invoke(actionSuccessData);
                                 break;
                             case MessageType.S2C_ActionFailed:
-                                var actionFailedData = JsonConvert.DeserializeObject<S2C_ActionFailedData>(gameMessage.DataJson);
+                                var actionFailedData =
+                                    JsonConvert.DeserializeObject<S2C_ActionFailedData>(gameMessage.DataJson);
                                 DebugLog($"❌ Aksiyon başarısız: {actionFailedData?.Reason}");
                                 if (actionFailedData != null) OnActionFailed?.Invoke(actionFailedData);
                                 break;
                             case MessageType.S2C_ProjectileSpawn:
-                                var projectileSpawnData = JsonConvert.DeserializeObject<S2C_ProjectileSpawnData>(gameMessage.DataJson);
-                                DebugLog($"🚀 Gülle spawn alındı: {projectileSpawnData?.ProjectileType} ID: {projectileSpawnData?.ProjectileId}");
+                                var projectileSpawnData =
+                                    JsonConvert.DeserializeObject<S2C_ProjectileSpawnData>(gameMessage.DataJson);
+                                DebugLog(
+                                    $"🚀 Gülle spawn alındı: {projectileSpawnData?.ProjectileType} ID: {projectileSpawnData?.ProjectileId}");
                                 if (projectileSpawnData != null) OnProjectileSpawn?.Invoke(projectileSpawnData);
                                 break;
                             default:
@@ -450,17 +539,17 @@ namespace Project.Scripts.Network
                 var json = JsonConvert.SerializeObject(message);
                 var messageWithDelimiter = json + "\n"; // Server newline delimiter bekliyor
                 var data = Encoding.UTF8.GetBytes(messageWithDelimiter);
-                
+
                 // Sadece önemli mesajları logla (Transform hariç)
                 if (message.Type != MessageType.C2S_TransformUpdate && verboseLogging)
                 {
                     DebugLog($"📤 {message.Type} gönderiliyor...");
                 }
-                
+
                 _stream.Write(data, 0, data.Length); // Synchronous write kullan
                 _stream.Flush(); // Mesajın hemen gönderilmesini sağla
                 SentPacketCount++;
-                
+
                 if (message.Type != MessageType.C2S_TransformUpdate && verboseLogging)
                 {
                     DebugLog($"✅ {message.Type} başarıyla gönderildi");
@@ -482,17 +571,17 @@ namespace Project.Scripts.Network
         public void SendJoinRequest()
         {
             DebugLog("==== SEND JOIN REQUEST ÇAĞRILDI ====");
-            
+
             if (PlayerManager.Instance?.ActiveShip == null)
             {
                 Debug.LogError("❌ HATA: PlayerManager.Instance.ActiveShip NULL! Join request gönderilemedi.");
                 Debug.LogError("➡️ Çözüm: Gemi seçim ekranından bir gemi seçin.");
                 return;
             }
-            
+
             var activeShip = PlayerManager.Instance.ActiveShip;
             DebugLog($"✅ ActiveShip bulundu: {activeShip.Name} (ID: {activeShip.Id})");
-            
+
             // JWT token'ı ApiManager'dan al
             string authToken = ApiManager.Instance?.GetAuthToken();
             if (string.IsNullOrEmpty(authToken))
@@ -501,13 +590,13 @@ namespace Project.Scripts.Network
                 Debug.LogError("➡️ Çözüm: Login ekranından tekrar giriş yapın.");
                 return;
             }
-            
+
             DebugLog($"✅ JWT Token bulundu: {authToken.Length} karakter");
 
             var joinData = new C2S_JoinGameData
             {
                 SelectedShipId = activeShip.Id,
-                AuthToken = authToken  // JWT token'ı ekle
+                AuthToken = authToken // JWT token'ı ekle
             };
 
             var message = new GameMessage

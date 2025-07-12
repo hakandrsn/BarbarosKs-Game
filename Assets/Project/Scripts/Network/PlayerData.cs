@@ -1,125 +1,201 @@
-﻿using System;
+using System;
+using System.Collections.Generic;
 using UnityEngine;
+using BarbarosKs.Shared.DTOs;
 
 namespace Project.Scripts.Network
 {
     /// <summary>
-    ///     Oyuncu verileri sınıfı
+    /// Modern MMO oyuncu verisi - GameServer DTOs ile uyumlu
+    /// GameServer'daki ShipStatsDto, AmmoStatus ve diğer modern yapıları destekler
     /// </summary>
     [Serializable]
     public class PlayerData
     {
-        // Oyuncu tanımlama
-        public string id;
-        public string username;
-        public string shipId;
+        // Oyuncu tanımlama - GameServer uyumlu
+        public Guid PlayerId;
+        public string Username;
+        public Guid ShipId;
+        public string ConnectionId;
 
         // Oyuncu dönüşümü
-        public Vector3 position;
-        public Quaternion rotation;
-        public Vector3 velocity;
+        public Vector3 Position;
+        public Quaternion Rotation;
+        public Vector3 Velocity;
 
         // Oyuncu durumu
-        public int health;
-        public int maxHealth;
-        public bool isAlive;
-        public float respawnTime;
+        public float Health;
+        public float MaxHealth;
+        public bool IsAlive;
+        public float RespawnTime;
 
         // Oyuncu istatistikleri
-        public int score;
-        public int kills;
-        public int deaths;
+        public int Score;
+        public int Kills;
+        public int Deaths;
+        public DateTime LastActivity;
 
-        // Aktif gemi verisi
-        public ShipData activeShip;
-
-        // Oyuncu profil bilgileri
-        public PlayerStats stats;
+        // Modern MMO Data - GameServer'dan sync
+        public ShipStatsData ShipStats;
+        public AmmoData AmmoStatus;
+        public CombatData CombatInfo;
+        public PlayerProfile Profile;
 
         /// <summary>
-        ///     Yeni bir oyuncu verisi oluşturur
+        /// Yeni bir oyuncu verisi oluşturur
         /// </summary>
         public PlayerData()
         {
-            id = Guid.NewGuid().ToString();
-            username = "Player";
-            health = 100;
-            maxHealth = 100;
-            isAlive = true;
-            respawnTime = 3f;
-            position = Vector3.zero;
-            rotation = Quaternion.identity;
-            velocity = Vector3.zero;
-            score = 0;
-            kills = 0;
-            deaths = 0;
-            stats = new PlayerStats();
+            PlayerId = Guid.NewGuid();
+            Username = "Player";
+            ShipId = Guid.Empty;
+            ConnectionId = string.Empty;
+            Health = 100f;
+            MaxHealth = 100f;
+            IsAlive = true;
+            RespawnTime = 3f;
+            Position = Vector3.zero;
+            Rotation = Quaternion.identity;
+            Velocity = Vector3.zero;
+            Score = 0;
+            Kills = 0;
+            Deaths = 0;
+            LastActivity = DateTime.UtcNow;
+            
+            // Modern MMO verilerini başlat
+            ShipStats = new ShipStatsData();
+            AmmoStatus = new AmmoData();
+            CombatInfo = new CombatData();
+            Profile = new PlayerProfile();
         }
 
         /// <summary>
-        ///     ID ile yeni bir oyuncu verisi oluşturur
+        /// ID ile yeni bir oyuncu verisi oluşturur
         /// </summary>
-        public PlayerData(string playerId, string playerName = null)
+        public PlayerData(Guid playerId, string playerName = null)
         {
-            id = playerId;
-            username = playerName ?? "Player" + playerId.Substring(0, 4);
-            health = 100;
-            maxHealth = 100;
-            isAlive = true;
-            respawnTime = 3f;
-            position = Vector3.zero;
-            rotation = Quaternion.identity;
-            velocity = Vector3.zero;
-            score = 0;
-            kills = 0;
-            deaths = 0;
-            stats = new PlayerStats();
+            PlayerId = playerId;
+            Username = playerName ?? "Player" + playerId.ToString().Substring(0, 8);
+            ShipId = Guid.Empty;
+            ConnectionId = string.Empty;
+            Health = 100f;
+            MaxHealth = 100f;
+            IsAlive = true;
+            RespawnTime = 3f;
+            Position = Vector3.zero;
+            Rotation = Quaternion.identity;
+            Velocity = Vector3.zero;
+            Score = 0;
+            Kills = 0;
+            Deaths = 0;
+            LastActivity = DateTime.UtcNow;
+            
+            // Modern MMO verilerini başlat
+            ShipStats = new ShipStatsData();
+            AmmoStatus = new AmmoData();
+            CombatInfo = new CombatData();
+            Profile = new PlayerProfile();
         }
 
         /// <summary>
-        ///     Oyuncu verilerini başka bir oyuncudan kopyalar
+        /// GameServer'daki ShipStatsDto'yu Unity ShipStatsData'ya dönüştürür
+        /// </summary>
+        public void UpdateShipStats(ShipStatsDto serverStats)
+        {
+            if (serverStats == null) return;
+
+            ShipStats.ShipId = serverStats.ShipId;
+            ShipStats.LastCalculated = serverStats.LastCalculated;
+            ShipStats.AttackPower = serverStats.AttackPower;
+            ShipStats.Armor = serverStats.Armor;
+            ShipStats.Speed = serverStats.Speed;
+            ShipStats.Maneuverability = serverStats.Maneuverability;
+            ShipStats.CannonPower = serverStats.CannonPower;
+            ShipStats.HitRate = serverStats.HitRate;
+            ShipStats.CriticalHitChance = serverStats.CriticalHitChance;
+            ShipStats.CriticalHitDamage = serverStats.CriticalHitDamage;
+            
+            // Bonus breakdowns
+            ShipStats.CrewBonuses = serverStats.CrewBonuses;
+            ShipStats.EquipmentBonuses = serverStats.EquipmentBonuses;
+            ShipStats.CannonballBonuses = serverStats.CannonballBonuses;
+        }
+
+        /// <summary>
+        /// GameServer'daki AmmoStatus'u Unity AmmoData'ya dönüştürür
+        /// </summary>
+        public void UpdateAmmoStatus(AmmoStatus serverAmmo)
+        {
+            if (serverAmmo == null) return;
+
+            AmmoStatus.ShipId = serverAmmo.ShipId;
+            AmmoStatus.CurrentAmmo = serverAmmo.CurrentAmmo;
+            AmmoStatus.TotalAmmo = serverAmmo.TotalAmmo;
+            AmmoStatus.MaxCapacity = serverAmmo.MaxCapacity;
+            AmmoStatus.SelectedCannonballType = serverAmmo.SelectedCannonballType;
+            AmmoStatus.CannonballTypes = serverAmmo.CannonballTypes;
+            AmmoStatus.IsReloading = serverAmmo.IsReloading;
+            AmmoStatus.ReloadTimeRemaining = serverAmmo.ReloadTimeRemaining;
+            AmmoStatus.AmmoPercentage = serverAmmo.AmmoPercentage;
+        }
+
+        /// <summary>
+        /// Oyuncu verilerini başka bir oyuncudan kopyalar
         /// </summary>
         public void CopyFrom(PlayerData other)
         {
             if (other == null) return;
 
             // Temel bilgileri kopyala
-            username = other.username;
-            shipId = other.shipId;
+            Username = other.Username;
+            ShipId = other.ShipId;
+            ConnectionId = other.ConnectionId;
 
             // Dönüşüm bilgilerini kopyala
-            position = other.position;
-            rotation = other.rotation;
-            velocity = other.velocity;
+            Position = other.Position;
+            Rotation = other.Rotation;
+            Velocity = other.Velocity;
 
             // Durum bilgilerini kopyala
-            health = other.health;
-            maxHealth = other.maxHealth;
-            isAlive = other.isAlive;
-            respawnTime = other.respawnTime;
+            Health = other.Health;
+            MaxHealth = other.MaxHealth;
+            IsAlive = other.IsAlive;
+            RespawnTime = other.RespawnTime;
 
             // İstatistikleri kopyala
-            score = other.score;
-            kills = other.kills;
-            deaths = other.deaths;
+            Score = other.Score;
+            Kills = other.Kills;
+            Deaths = other.Deaths;
+            LastActivity = other.LastActivity;
 
-            // Gemi verilerini kopyala
-            if (other.activeShip != null)
+            // Modern MMO verilerini kopyala
+            if (other.ShipStats != null)
             {
-                if (activeShip == null) activeShip = new ShipData();
-                activeShip.CopyFrom(other.activeShip);
+                if (ShipStats == null) ShipStats = new ShipStatsData();
+                ShipStats.CopyFrom(other.ShipStats);
             }
 
-            // İstatistikleri kopyala
-            if (other.stats != null)
+            if (other.AmmoStatus != null)
             {
-                if (stats == null) stats = new PlayerStats();
-                stats.CopyFrom(other.stats);
+                if (AmmoStatus == null) AmmoStatus = new AmmoData();
+                AmmoStatus.CopyFrom(other.AmmoStatus);
+            }
+
+            if (other.CombatInfo != null)
+            {
+                if (CombatInfo == null) CombatInfo = new CombatData();
+                CombatInfo.CopyFrom(other.CombatInfo);
+            }
+
+            if (other.Profile != null)
+            {
+                if (Profile == null) Profile = new PlayerProfile();
+                Profile.CopyFrom(other.Profile);
             }
         }
 
         /// <summary>
-        ///     Oyuncu verilerini JSON formatına dönüştürür
+        /// Oyuncu verilerini JSON formatına dönüştürür
         /// </summary>
         public string ToJson()
         {
@@ -127,7 +203,7 @@ namespace Project.Scripts.Network
         }
 
         /// <summary>
-        ///     JSON verilerinden oyuncu verisi oluşturur
+        /// JSON verilerinden oyuncu verisi oluşturur
         /// </summary>
         public static PlayerData FromJson(string json)
         {
@@ -137,136 +213,198 @@ namespace Project.Scripts.Network
             }
             catch (Exception e)
             {
-                Debug.LogError($"Oyuncu verisi ayrıştırma hatası: {e.Message}");
+                Debug.LogError($"PlayerData ayrıştırma hatası: {e.Message}");
                 return null;
             }
         }
+    }
 
-        /// <summary>
-        ///     Gemi verilerini içeren sınıf
-        /// </summary>
-        [Serializable]
-        public class ShipData
+    /// <summary>
+    /// Modern MMO gemi istatistikleri - GameServer ShipStatsDto ile uyumlu
+    /// </summary>
+    [Serializable]
+    public class ShipStatsData
+    {
+        public Guid ShipId = Guid.Empty;
+        public DateTime LastCalculated = DateTime.UtcNow;
+        
+        // Ana istatistikler
+        public float AttackPower;
+        public float Armor;
+        public float Speed;
+        public float Maneuverability;
+        public float CannonPower;
+        public float HitRate;
+        public float CriticalHitChance;
+        public float CriticalHitDamage;
+        
+        // Bonus ayrıntıları
+        public StatsBonusDto CrewBonuses = new StatsBonusDto();
+        public StatsBonusDto EquipmentBonuses = new StatsBonusDto();
+        public StatsBonusDto CannonballBonuses = new StatsBonusDto();
+
+        public void CopyFrom(ShipStatsData other)
         {
-            public string id;
-            public string name;
-            public int level;
-            public int durability;
-            public int maxDurability;
-            public float speed;
-            public float turnRate;
-            public float fireRate;
-            public string shipType;
-            public int currentHullDurability;
-            public int baseHullDurability;
+            if (other == null) return;
 
-            // Silah verileri
-            public WeaponData[] weapons;
+            ShipId = other.ShipId;
+            LastCalculated = other.LastCalculated;
+            AttackPower = other.AttackPower;
+            Armor = other.Armor;
+            Speed = other.Speed;
+            Maneuverability = other.Maneuverability;
+            CannonPower = other.CannonPower;
+            HitRate = other.HitRate;
+            CriticalHitChance = other.CriticalHitChance;
+            CriticalHitDamage = other.CriticalHitDamage;
 
-            /// <summary>
-            ///     Gemi verilerini başka bir gemiden kopyalar
-            /// </summary>
-            public void CopyFrom(ShipData other)
-            {
-                if (other == null) return;
-
-                id = other.id;
-                name = other.name;
-                level = other.level;
-                durability = other.durability;
-                maxDurability = other.maxDurability;
-                speed = other.speed;
-                turnRate = other.turnRate;
-                fireRate = other.fireRate;
-
-                // Silah verilerini kopyala
-                if (other.weapons != null && other.weapons.Length > 0)
-                {
-                    weapons = new WeaponData[other.weapons.Length];
-                    for (var i = 0; i < other.weapons.Length; i++)
-                    {
-                        weapons[i] = new WeaponData();
-                        weapons[i].CopyFrom(other.weapons[i]);
-                    }
-                }
-            }
-
-            /// <summary>
-            ///     Silah verilerini içeren sınıf
-            /// </summary>
-            [Serializable]
-            public class WeaponData
-            {
-                public int id;
-                public string type;
-                public int damage;
-                public float cooldown;
-                public float lastFiredTime;
-                public bool isActive;
-
-                /// <summary>
-                ///     Silah verilerini başka bir silahtan kopyalar
-                /// </summary>
-                public void CopyFrom(WeaponData other)
-                {
-                    if (other == null) return;
-
-                    id = other.id;
-                    type = other.type;
-                    damage = other.damage;
-                    cooldown = other.cooldown;
-                    lastFiredTime = other.lastFiredTime;
-                    isActive = other.isActive;
-                }
-            }
-        }
-
-        /// <summary>
-        ///     Oyuncu istatistiklerini içeren sınıf
-        /// </summary>
-        [Serializable]
-        public class PlayerStats
-        {
-            public int level;
-            public int experience;
-            public int requiredExperienceForNextLevel;
-            public int pearls;
-            public int artifacts;
-            public int gold;
-            public int victories;
-            public int defeats;
-
-            /// <summary>
-            ///     Yeni bir istatistik nesnesi oluşturur
-            /// </summary>
-            public PlayerStats()
-            {
-                level = 1;
-                experience = 0;
-                requiredExperienceForNextLevel = 100;
-                pearls = 0;
-                artifacts = 0;
-                gold = 0;
-                victories = 0;
-                defeats = 0;
-            }
-
-            /// <summary>
-            ///     İstatistikleri başka bir istatistik nesnesinden kopyalar
-            /// </summary>
-            public void CopyFrom(PlayerStats other)
-            {
-                if (other == null) return;
-
-                level = other.level;
-                experience = other.experience;
-                requiredExperienceForNextLevel = other.requiredExperienceForNextLevel;
-                pearls = other.pearls;
-                artifacts = other.artifacts;
-                gold = other.gold;
-                victories = other.victories;
-                defeats = other.defeats;
-            }
+            CrewBonuses = other.CrewBonuses;
+            EquipmentBonuses = other.EquipmentBonuses;
+            CannonballBonuses = other.CannonballBonuses;
         }
     }
-}
+
+    /// <summary>
+    /// Modern MMO ammo sistemi - GameServer AmmoStatus ile uyumlu
+    /// </summary>
+    [Serializable]
+    public class AmmoData
+    {
+        public Guid ShipId;
+        public int CurrentAmmo;
+        public int TotalAmmo;
+        public int MaxCapacity;
+        public int SelectedCannonballType;
+        public Dictionary<int, int> CannonballTypes;
+        public bool IsReloading;
+        public double ReloadTimeRemaining;
+        public float AmmoPercentage;
+        
+        public AmmoData()
+        {
+            ShipId = Guid.Empty;
+            CurrentAmmo = 0;
+            TotalAmmo = 0;
+            MaxCapacity = 100;
+            SelectedCannonballType = 0;
+            CannonballTypes = new Dictionary<int, int>();
+            IsReloading = false;
+            ReloadTimeRemaining = 0;
+            AmmoPercentage = 0;
+        }
+
+        public void CopyFrom(AmmoData other)
+        {
+            if (other == null) return;
+
+            ShipId = other.ShipId;
+            CurrentAmmo = other.CurrentAmmo;
+            TotalAmmo = other.TotalAmmo;
+            MaxCapacity = other.MaxCapacity;
+            SelectedCannonballType = other.SelectedCannonballType;
+            CannonballTypes = new Dictionary<int, int>(other.CannonballTypes);
+            IsReloading = other.IsReloading;
+            ReloadTimeRemaining = other.ReloadTimeRemaining;
+            AmmoPercentage = other.AmmoPercentage;
+        }
+    }
+
+    /// <summary>
+    /// Modern MMO combat sistemi
+    /// </summary>
+    [Serializable]
+    public class CombatData
+    {
+        public DateTime LastAttackTime;
+        public DateTime LastDamageTaken;
+        public float AttackCooldownRemaining;
+        public bool IsInCombat;
+        public List<DamageEvent> RecentDamage;
+        
+        public CombatData()
+        {
+            LastAttackTime = DateTime.MinValue;
+            LastDamageTaken = DateTime.MinValue;
+            AttackCooldownRemaining = 0f;
+            IsInCombat = false;
+            RecentDamage = new List<DamageEvent>();
+        }
+
+        public void CopyFrom(CombatData other)
+        {
+            if (other == null) return;
+
+            LastAttackTime = other.LastAttackTime;
+            LastDamageTaken = other.LastDamageTaken;
+            AttackCooldownRemaining = other.AttackCooldownRemaining;
+            IsInCombat = other.IsInCombat;
+            RecentDamage = new List<DamageEvent>(other.RecentDamage);
+        }
+    }
+
+    /// <summary>
+    /// Modern MMO player profili
+    /// </summary>
+    [Serializable]
+    public class PlayerProfile
+    {
+        public int Level;
+        public int Experience;
+        public int Pearls;
+        public int Artifacts;
+        public int Victories;
+        public int Defeats;
+        public DateTime CreatedAt;
+        public DateTime LastLogin;
+        
+        public PlayerProfile()
+        {
+            Level = 1;
+            Experience = 0;
+            Pearls = 0;
+            Artifacts = 0;
+            Victories = 0;
+            Defeats = 0;
+            CreatedAt = DateTime.UtcNow;
+            LastLogin = DateTime.UtcNow;
+        }
+
+        public void CopyFrom(PlayerProfile other)
+        {
+            if (other == null) return;
+
+            Level = other.Level;
+            Experience = other.Experience;
+            Pearls = other.Pearls;
+            Artifacts = other.Artifacts;
+            Victories = other.Victories;
+            Defeats = other.Defeats;
+            CreatedAt = other.CreatedAt;
+            LastLogin = other.LastLogin;
+        }
+    }
+
+    /// <summary>
+    /// Damage event tracker
+    /// </summary>
+    [Serializable]
+    public class DamageEvent
+    {
+        public Guid AttackerId;
+        public Guid TargetId;
+        public float Damage;
+        public bool IsCritical;
+        public string DamageType;
+        public DateTime Timestamp;
+        
+        public DamageEvent()
+        {
+            AttackerId = Guid.Empty;
+            TargetId = Guid.Empty;
+            Damage = 0f;
+            IsCritical = false;
+            DamageType = "Unknown";
+            Timestamp = DateTime.UtcNow;
+        }
+    }
+} 

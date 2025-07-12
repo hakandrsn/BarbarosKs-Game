@@ -539,7 +539,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 01b30bb243622764e98b9d96ad37b33a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  prefabs: []
+  prefabs:
+  - {fileID: 7812893202895217500, guid: 574a2a5ff582ab04a91b2eee06be779c, type: 3}
+  - {fileID: 5841565649136859007, guid: 73b6d163a8595b845a235d1eacbe25cb, type: 3}
+  - {fileID: 2791600215610794236, guid: edfabd324c3a0c34985b4d171059bc53, type: 3}
   floorCollider: {fileID: 0}
   cameraPivot: {fileID: 0}
   cameraRotationSpeed: 10
@@ -557,10 +560,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 24781741080fd034aae25f45bdf6adb4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  enableRealTimeSync: 1
+  enableLocalCaching: 1
+  realTimeSyncInterval: 1
+  reloadSoundDelay: 0.5
   _enableCaching: 1
   _cacheExpirationMinutes: 30
   _isLoading: 0
   _hasCache: 0
+  _isConnectedToServer: 0
 --- !u!114 &2067728891
 MonoBehaviour:
   m_ObjectHideFlags: 0

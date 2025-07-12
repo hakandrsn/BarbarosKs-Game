@@ -42,14 +42,14 @@ namespace Project.Scripts.Network
             foreach (var player in players)
             {
                 // Pozisyon ve rotasyon değerlerini Unity formatına çevir
-                if (player.position != Vector3.zero)
+                if (player.Position != Vector3.zero)
                 {
                     // Server tarafında farklı koordinat sistemi kullanılıyorsa
                     // gerekli dönüşümleri burada yapabilirsiniz
                 }
 
                 // Gemi verilerini kontrol et
-                if (player.activeShip != null)
+                if (player.ShipStats != null)
                 {
                     // Gemi pozisyonu, rotasyonu, vs. için ek dönüşümler yapılabilir
                 }
@@ -64,7 +64,7 @@ namespace Project.Scripts.Network
             if (string.IsNullOrEmpty(localPlayerId)) return null;
 
             foreach (var player in players)
-                if (player.id == localPlayerId)
+                if (player.PlayerId.ToString() == localPlayerId)
                     return player;
 
             return null;
@@ -78,7 +78,7 @@ namespace Project.Scripts.Network
             if (string.IsNullOrEmpty(playerId)) return null;
 
             foreach (var player in players)
-                if (player.id == playerId)
+                if (player.PlayerId.ToString() == playerId)
                     return player;
 
             return null;
