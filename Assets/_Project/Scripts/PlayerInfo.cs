@@ -1,6 +1,9 @@
 // Filename: PlayerInfo.cs
+
+using TMPro;
 using Unity.Netcode;
 using Unity.Collections;
+using UnityEngine;
 
 public class PlayerInfo : NetworkBehaviour
 {
@@ -10,6 +13,7 @@ public class PlayerInfo : NetworkBehaviour
     // Gelecekte oyuncu seviyesi, loncası gibi bilgiler de buraya eklenebilir.
     // public NetworkVariable<int> PlayerLevel = new NetworkVariable<int>();
 
+    [SerializeField] private TextMeshProUGUI  _userNameTextGUI;
     /// <summary>
     /// Bu metot, gemi spawn olurken sunucudaki PlayerManager tarafından çağrılır.
     /// </summary>
@@ -19,6 +23,7 @@ public class PlayerInfo : NetworkBehaviour
         if (IsServer)
         {
             Username.Value = username;
+            _userNameTextGUI.text = username;
         }
     }
 }
