@@ -1,0 +1,17 @@
+fileFormatVersion: 2
+guid: 2b175fef91ca73243b76d794cca36e16
+AssetOrigin:
+  serializedVersion: 1
+  productId: 302142
+  packageName: VFX Graph - Kikoken
+  packageVersion: 1.1
+  assetPath: Assets/TwoUncleVFX/_Effect/_Shader/PoisonTrail.shadergraph
+  uploadId: 760011
+ScriptedImporter:
+  internalIDToNameTable: []
+  externalObjects: {}
+  serializedVersion: 2
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+  script: {instanceID: 0}

@@ -3,18 +3,15 @@
 --- !u!78 &1
 TagManager:
   serializedVersion: 3
-  tags:
-  - Enemy
-  - NPC
-  - MoveArea
+  tags: []
   layers:
   - Default
   - TransparentFX
   - Ignore Raycast
-  - Enemy
+  - Sea
   - Water
   - UI
-  - 
+  - Targetable
   - 
   - 
   - 

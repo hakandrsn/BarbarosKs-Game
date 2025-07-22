@@ -6,26 +6,11 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Scenes/Bootstrap.unity
-    guid: 44817a1ad8e21a749911ace884063b89
+    path: Assets/_Project/Scenes/MainMenu.unity
+    guid: 2af3c5664c0968f45876615e971b82fa
   - enabled: 1
-    path: Assets/Scenes/Login.unity
-    guid: 6e87b987f705f834087b1a15849ef57d
-  - enabled: 1
-    path: Assets/Scenes/SelectShipScene.unity
-    guid: 825f2525aeda9d040bdb7e4eb141d3e7
-  - enabled: 1
-    path: Assets/Scenes/FisherSea.unity
-    guid: 24a0368f85acb504482333526675eb64
-  - enabled: 1
-    path: Assets/Scenes/Register.unity
-    guid: c203afb20b32b0e4abde480b6db876d4
-  - enabled: 1
-    path: Assets/Scenes/CreateShip.unity
-    guid: e31083d87f86e7143af0f535a57e392b
-  - enabled: 1
-    path: Assets/Scenes/Loading.unity
-    guid: 36b116f6cbc6c414b83324077a360ffb
+    path: Assets/_Project/Scenes/Main.unity
+    guid: 108505ccf2e69da4bb25e94446609b36
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   m_UseUCBPForAssetBundles: 0

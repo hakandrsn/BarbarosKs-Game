@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2ccafe5a46624a64b55cd0db26dd3f06, type: 3}
+  m_Name: KorsanDevriye_Data
+  m_EditorClassIdentifier: 
+  npcName: Korsan
+  shipPrefab: {fileID: 6336937085482125642, guid: c1eb6634b6a55e940a1030a070cb5e92, type: 3}
+  maxHull: 150
+  speed: 2
+  maneuverability: 300
+  attackRate: 5
+  range: 25
+  equippedCannonballCode: 120002
+  aggroRadius: 30
+  patrolRadius: 50
