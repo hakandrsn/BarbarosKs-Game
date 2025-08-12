@@ -1,20 +1,23 @@
 ﻿// Filename: PlayerApiService.cs
 
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using BarbarosKs.Shared.DTOs;
 using UnityEngine; // Hata verirse bu satırı silin
 
 public class PlayerApiService : BaseApiService, IGameService
 {
-    public CharacterSelectionDto PlayerData { get; private set; }
+    public List<PlayerShipListDto> PlayerData { get; private set; }
     public ShipDetailDto ShipData { get; private set; }
     public event Action OnPlayerDataReceived;
     public event Action OnPlayerDataReceivedFailed;
 
+
+    // get all ships list for select
     public async Task GetMyCharacterDataAsync()
     {
-        var characterData = await GetAsync<CharacterSelectionDto>("/api/Players/me");
+        var characterData = await GetAsync<List<PlayerShipListDto>>("/api/players/me");
 
         if (characterData != null)
         {
@@ -38,14 +41,22 @@ public class PlayerApiService : BaseApiService, IGameService
     }
 
 
+    // seçilen geminin özelliklerini getirir ama server için değil clientte görmesi için token gerekli
     public async Task<ShipDetailResponse> GetShipDetailAsync(Guid shipId)
     {
         // Yeni ve güvenli sunucu endpoint'ini çağırıyoruz.
-        var endpoint = $"/api/Players/server/ships/{shipId}";
+        var endpoint = $"/api/players/ships/{shipId}/details";
 
         // Artık JWT Token kontrolü yapmayan GetAsync'i çağırabiliriz.
         // BaseApiService'teki GetAsync'ten 'requireAuth' kontrolünü kaldırabilir veya false geçebilirsiniz.
-        return await GetAsync<ShipDetailResponse>(endpoint, false);
+        return await GetAsync<ShipDetailResponse>(endpoint);
+    }
+
+    public async Task<ShipDetailDto> CreateShipAsync(CreateShipRequestDto createShipDto)
+    {
+        var endpoint = $"/api/players/ships/create";
+
+        return await PostAsync<CreateShipRequestDto, ShipDetailDto>(endpoint, createShipDto);
     }
 
     /// <summary>
@@ -67,9 +78,32 @@ public class PlayerApiService : BaseApiService, IGameService
 
         // 3. Call the generic PutAsync method from BaseApiService.
         // It sends the payload and expects a generic ApiResponseDto back.
-        var response = await PutAsync<SetActiveCannonballRequestDto, ApiResponseDto>(endpoint, requestPayload);
+        var response = await PutAsync<SetActiveCannonballRequestDto, ApiResponse>(endpoint, requestPayload);
 
         // 4. Return true if the response is not null and the API reported success.
         return response is { Success: true };
     }
+
+    #region Connection methods
+
+    // first connection and include stat
+    public async Task<ConnectionResponseDto> ConnectToServer(ConnectionRequestDto request)
+    {
+        var endpoint = $"/api/connection/request";
+        return await PostAsync<ConnectionRequestDto, ConnectionResponseDto>(endpoint, request, false);
+    }
+
+    public async Task<object> DisconnectFromServer(DisconnectRequestDto request)
+    {
+        var endpoint = $"/api/connection/disconnect";
+        return await PostAsync<DisconnectRequestDto, object>(endpoint, request, false);
+    }
+
+    public async Task<List<ServerStatusDto>> GetServers()
+    {
+        var endpoint = $"/api/connection/servers";
+        return await GetAsync<List<ServerStatusDto>>(endpoint, false);
+    }
+
+    #endregion
 }

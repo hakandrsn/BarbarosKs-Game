@@ -11,7 +11,7 @@ public class AuthApiService : BaseApiService, IGameService
     public async Task LoginAsync(string email, string password)
     {
         var requestData = new LoginRequest { email = email, password = password };
-        var authResponse = await PostAsync<LoginRequest, AuthResponseDto>("api/Auth/login", requestData, requireAuth: false);
+        var authResponse = await PostAsync<LoginRequest, AuthResponseDto>("api/auth/login", requestData);
 
         if (authResponse is { Success: true })
         {
@@ -29,7 +29,7 @@ public class AuthApiService : BaseApiService, IGameService
         // Bu metot token gerektirmez.
         try
         {
-            var response = await HttpClient.GetAsync("/api/Auth/health");
+            var response = await HttpClient.GetAsync("/api/auth/health");
             return response.IsSuccessStatusCode;
         }
         catch { return false; }

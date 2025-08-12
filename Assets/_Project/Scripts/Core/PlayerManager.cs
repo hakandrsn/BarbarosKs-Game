@@ -1,6 +1,7 @@
 ﻿// Filename: PlayerManager.cs (Final Simplified Version)
 
 using System;
+using BarbarosKs.Shared.DTOs;
 using Unity.Netcode;
 using UnityEngine;
 using Unity.Collections;
@@ -13,7 +14,6 @@ public class PlayerManager : IGameService
     {
         var playerApiService = ServiceLocator.Current.Get<PlayerApiService>();
 
-        // DÜZELTME: Artık API'den ShipDetailResponse bekliyoruz.
         ShipDetailResponse shipDataResponse = await playerApiService.GetShipDetailAsync(shipIdToSpawn);
 
         // DÜZELTME: Gelen cevabın başarılı olup olmadığını ve verinin null olup olmadığını kontrol ediyoruz.
@@ -50,13 +50,13 @@ public class PlayerManager : IGameService
             Debug.LogError("HATA: Gemi prefab'ının üzerinde PlayerController script'i bulunamadı!");
             return;
         }
-        
+
         // yeni bir senkronizer data gelirse buraya ve shipStats ekelenecek
         var statsToSync = new ShipStatsData
         {
             Speed = shipDetail.Speed,
             Maneuverability = shipDetail.Maneuverability, // Manevra kabiliyetini doğrudan açısal hıza atıyoruz.
-            AttackRate = shipDetail.AttackRate,
+            HitRate = shipDetail.HitRate,
             Range = shipDetail.Range,
             Armor = shipDetail.Armor,
             CurrentVigor = shipDetail.CurrentVigor,
@@ -66,7 +66,7 @@ public class PlayerManager : IGameService
         shipStats.InitializeServerRpc(statsToSync);
 
         shipInstance.GetComponent<PlayerInfo>().Initialize(shipDetail.Name);
-        shipInstance.GetComponent<ShipIdentity>().shipId.Value = new FixedString128Bytes(shipDetail.Id.ToString());
+        shipInstance.GetComponent<ShipIdentity>().shipId.Value = new FixedString128Bytes(shipDetail.ShipId.ToString());
         shipInstance.GetComponent<Health>().Initialize(shipDetail.MaxHull, shipDetail.CurrentHull);
         shipInstance.GetComponent<ShipCombat>().InitializeForPlayer(
             shipDetail.ActiveCannonballCode ?? 0,

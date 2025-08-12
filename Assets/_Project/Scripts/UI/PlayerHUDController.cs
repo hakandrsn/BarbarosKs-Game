@@ -3,6 +3,7 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using UnityEngine.Serialization;
 
 public class PlayerHUDController : MonoBehaviour
 {
@@ -11,7 +12,7 @@ public class PlayerHUDController : MonoBehaviour
 
     [SerializeField] private Slider _playerHealthSlider;
     [SerializeField] private TextMeshProUGUI _playerHealthText;
-    [SerializeField] private TextMeshProUGUI _playerAttackRate;
+    [SerializeField] private TextMeshProUGUI _playerCooldown;
     [SerializeField] private TextMeshProUGUI _playerCurrentVigor;
     [SerializeField] private TextMeshProUGUI _playerRange;
 
@@ -52,7 +53,7 @@ public class PlayerHUDController : MonoBehaviour
         // UI'ı mevcut verilerle ilk kez doldur.
         UpdateMaxHealthUI(0, _localPlayerHealth.MaxHealth.Value);
         UpdateCurrentHealthUI(0, _localPlayerHealth.CurrentHealth.Value);
-        UpdateAttackRate(0, _localPlayerShipStats.AttackRate.Value);
+        UpdateAttackRate(0, _localPlayerShipStats.Cooldown.Value);
         UpdateRange(0, _localPlayerShipStats.Range.Value);
         UpdateCurrentVigor(0, _localPlayerShipStats.CurrentVigor);
     }
@@ -73,7 +74,7 @@ public class PlayerHUDController : MonoBehaviour
 
     private void UpdateAttackRate(int previousValue, float newValue)
     {
-        _playerAttackRate.text = newValue.ToString();
+        _playerCooldown.text = newValue.ToString();
     }
 
     private void UpdateRange(int previousValue, float newValue)

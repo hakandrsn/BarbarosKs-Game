@@ -10,10 +10,10 @@ public class ShipStats : NetworkBehaviour
 
     public NetworkVariable<float> Speed = new();
     public NetworkVariable<float> AngularSpeed = new();
-    public NetworkVariable<float> AttackRate = new();
+    public NetworkVariable<float> HitRate = new();
     public NetworkVariable<float> Range = new();
     public NetworkVariable<float> Armor = new();
-    
+    public NetworkVariable<float> Cooldown = new();
     public int CurrentVigor { get; private set; }
 
     private void Awake()
@@ -47,9 +47,10 @@ public class ShipStats : NetworkBehaviour
         // 1. NetworkVariable'lara API'den gelen ilk değerleri ata.
         Speed.Value = statsData.Speed;
         AngularSpeed.Value = statsData.Maneuverability;
-        AttackRate.Value = statsData.AttackRate;
+        HitRate.Value = statsData.HitRate;
         Range.Value = statsData.Range;
         Armor.Value = statsData.Armor;
+        Cooldown.Value = statsData.Cooldown;
         
         // --- KRİTİK DÜZELTME ---
         // 2. NavMeshAgent'ın başlangıç değerlerini, NetworkVariable'ların

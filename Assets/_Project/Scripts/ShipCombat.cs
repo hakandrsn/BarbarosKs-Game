@@ -88,7 +88,7 @@ public class ShipCombat : NetworkBehaviour
 
         float totalRange = _shipStats.Range.Value + equippedCannonballStats.RangeBonus;
         if (Vector3.Distance(transform.position, targetObject.transform.position) > totalRange) return;
-        if (Time.time < _lastAttackTime + _shipStats.AttackRate.Value) return;
+        if (Time.time < _lastAttackTime + _shipStats.Cooldown.Value) return;
 
         if (!_cannonballInventory.TryGetValue(EquippedCannonballCode.Value, out int count) || count <= 0)
         {

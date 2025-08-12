@@ -1,6 +1,7 @@
 ﻿// Filename: AuthResponse.cs
 
 using BarbarosKs.Shared.DTOs;
+using BarbarosKs.Shared.DTOs.player;
 
 [System.Serializable]
 public class ShipDetailResponse

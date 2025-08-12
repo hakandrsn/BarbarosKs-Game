@@ -21,11 +21,11 @@ public class ShipSelectionButton : MonoBehaviour
         _playerApiService = ServiceLocator.Current.Get<PlayerApiService>();
     }
 
-    public void Setup(ShipSummaryDto shipData, Action<Guid> onClickCallback)
+    public void Setup(ShipDetailDto shipData, Action<Guid> onClickCallback)
     {
-        _shipId = shipData.Id;
+        _shipId = shipData.ShipId;
         _onClickCallback = onClickCallback;
-        _shipInfoText.text = $"{shipData.Name} <size=20>(Lv. {shipData.Level} {shipData.Type})</size>";
+        _shipInfoText.text = $"{shipData.ShipName} <size=20>(Lv. {shipData.Level} {shipData.ShipType})</size>";
         _button.onClick.AddListener(OnButtonClicked);
     }
 
