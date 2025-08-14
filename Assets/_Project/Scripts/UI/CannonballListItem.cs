@@ -14,11 +14,11 @@ public class CannonballListItem : MonoBehaviour, IPointerClickHandler
     [SerializeField] private TMP_Text _quantityText;
     [SerializeField] private Image _selectionFrame; // Seçildiğinde görünecek çerçeve
 
-    public CannonballTypeDto _cannonballData;
+    public CannonballDto _cannonballData;
     private Action<int> _onSingleClick;
     private Action<int> _onDoubleClick;
 
-    public void Setup(CannonballTypeDto data, int quantity, Action<int> onSingleClick, Action<int> onDoubleClick)
+    public void Setup(CannonballDto data, int quantity, Action<int> onSingleClick, Action<int> onDoubleClick)
     {
         _cannonballData = data;
         _onSingleClick = onSingleClick;

@@ -8,36 +8,86 @@ using UnityEngine; // Hata verirse bu satırı silin
 
 public class PlayerApiService : BaseApiService, IGameService
 {
-    public List<PlayerShipListDto> PlayerData { get; private set; }
-    public ShipDetailDto ShipData { get; private set; }
-    public event Action OnPlayerDataReceived;
-    public event Action OnPlayerDataReceivedFailed;
+    public List<PlayerShipListDto> Ships { get; private set; }
+    public PlayerSessionDto PlayerSession { get; private set; }
+    public ShipStatsDto ShipStats { get; private set; }
+    public ShipData ShipData { get; private set; }
 
+    public event Action OnPlayerShipsReceived;
+    public event Action OnPlayerShipsReceivedFailed;
+
+    public event Action OnPlayerConnected;
+    public event Action OnPlayerConnectFailed;
+
+
+	public async Task ConnectRequestToServerForData(Guid shipId, string preferredRegion = null, string overrideToken = null)
+	{
+		var request = new ConnectionRequestDto
+		{
+			ShipId = shipId,
+			PreferredRegion = preferredRegion
+		};
+
+		ApiResponse<ConnectionResponseDto> response;
+		if (!string.IsNullOrEmpty(overrideToken))
+		{
+			// İstek başına token ile POST
+			response = await PostAsync<ConnectionRequestDto, ApiResponse<ConnectionResponseDto>>(
+				"/api/connection/request", request, true, overrideToken);
+		}
+		else
+		{
+			// Global token ile POST (Login sonrası SetToken çağrıldıysa)
+			response = await PostAsync<ConnectionRequestDto, ApiResponse<ConnectionResponseDto>>(
+				"/api/connection/request", request, true);
+		}
+
+		if (response is { Success: true })
+		{
+			var connectionResponse = response.Data;
+			PlayerSession = connectionResponse.PlayerSession;
+			ShipStats = connectionResponse.ShipStats;
+			ShipData = connectionResponse.ShipData;
+			OnPlayerConnected?.Invoke();
+		}
+		else
+		{
+			OnPlayerConnectFailed?.Invoke();
+		}
+	}
 
     // get all ships list for select
-    public async Task GetMyCharacterDataAsync()
+    public async Task GetMyShipsDataAsync()
     {
-        var characterData = await GetAsync<List<PlayerShipListDto>>("/api/players/me");
-
-        if (characterData != null)
+        var response = await GetAsync<ApiResponse<List<PlayerShipListDto>>>("/api/players/me/ships");
+        var shipList = response?.Data;
+        if (shipList != null)
         {
-            PlayerData = characterData;
-            OnPlayerDataReceived?.Invoke();
+            Debug.Log($"GetMyShipsDataAsync {shipList.Count}");
+            Ships = shipList;
+            OnPlayerShipsReceived?.Invoke();
         }
         else
         {
-            OnPlayerDataReceivedFailed?.Invoke();
+            OnPlayerShipsReceivedFailed?.Invoke();
         }
     }
 
-    public async Task<AttackResult> ProcessAttackAsync(Guid attackerId, Guid targetId)
+    public async Task<AttackResponseDto> ProcessAttackAsync(Guid attackerId, Guid targetId)
     {
-        var payload = new AttackRequestPayload
+        var payload = new AttackRequestDto
         {
-            AttackerShipId = attackerId.ToString(),
-            TargetShipId = targetId.ToString()
+            AttackerShipId = attackerId,
+            TargetShipId = targetId
         };
-        return await PostAsync<AttackRequestPayload, AttackResult>("/api/gateway/attack", payload);
+        return await PostAsync<AttackRequestDto, AttackResponseDto>("/api/gateway/attack", payload);
+    }
+
+    public async Task<ShipRespawnResultDto> RespawnShipAsync(Guid shipId)
+    {
+        var endpoint = $"/api/players/ships/{shipId}/respawn";
+        // JWT gerekli varsayımıyla default requireAuth=true kullanılacak
+        return await PostAsync<object, ShipRespawnResultDto>(endpoint, new { });
     }
 
 

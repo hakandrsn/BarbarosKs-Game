@@ -57,7 +57,7 @@ public class MainMenuUIManager : MonoBehaviour
         _launchButton.onClick.AddListener(OnLaunchClicked);
 
         _authApiService.OnLoginSuccess += HandleLoginSuccess;
-        _playerApiService.OnPlayerDataReceived += HandlePlayerDataReceived;
+        _playerApiService.OnPlayerShipsReceived += HandlePlayerShipsReceived;
 
         _loginPanel.SetActive(true);
         _shipSelectionPanel.SetActive(false);
@@ -89,10 +89,10 @@ public class MainMenuUIManager : MonoBehaviour
     private void HandleLoginSuccess()
     {
         _statusText.text = "Karakter verileri alınıyor...";
-        _ = _playerApiService.GetMyCharacterDataAsync();
+        _ = _playerApiService.GetMyShipsDataAsync();
     }
 
-    private void HandlePlayerDataReceived()
+    private void HandlePlayerShipsReceived()
     {
         _loginPanel.SetActive(false);
         _shipSelectionPanel.SetActive(true);
@@ -103,7 +103,7 @@ public class MainMenuUIManager : MonoBehaviour
     {
         foreach (Transform child in _shipListContent) Destroy(child.gameObject);
 
-        foreach (var ship in _playerApiService.PlayerData.Ships)
+        foreach (var ship in _playerApiService.Ships)
         {
             var buttonGo = Instantiate(_shipButtonPrefab, _shipListContent);
             buttonGo.GetComponent<ShipSelectionButton>().Setup(ship, SelectShip);
@@ -195,7 +195,7 @@ public class MainMenuUIManager : MonoBehaviour
         if (_authApiService != null && _playerApiService != null)
         {
             _authApiService.OnLoginSuccess -= HandleLoginSuccess;
-            _playerApiService.OnPlayerDataReceived -= HandlePlayerDataReceived;
+            _playerApiService.OnPlayerShipsReceived -= HandlePlayerShipsReceived;
         }
 
         // if (NetworkManager.Singleton != null)

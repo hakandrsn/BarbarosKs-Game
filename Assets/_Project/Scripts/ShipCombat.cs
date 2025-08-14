@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using BarbarosKs.Shared.DTOs;
 using Unity.Netcode;
 using UnityEngine;
+using System;
 
 public class ShipCombat : NetworkBehaviour
 {
@@ -11,6 +12,7 @@ public class ShipCombat : NetworkBehaviour
 
     private float _lastAttackTime = -999f;
     private ulong _autoAttackTargetId = ulong.MaxValue;
+    private bool _attackRequestPending = false;
 
     private ShipStats _shipStats;
     private Transform _cannonSpawnPoint;
@@ -24,13 +26,14 @@ public class ShipCombat : NetworkBehaviour
         }
     }
 
-    public void InitializeForPlayer(int activeCannonballCode, List<ShipCannonballInventoryDto> inventory, Transform cannonSpawnPoint)
+    public void InitializeForPlayer(int activeCannonballCode, List<ShipCannonballInventoryDto> inventory,
+        Transform cannonSpawnPoint)
     {
         if (!IsServer) return;
-        
+
         EquippedCannonballCode.Value = activeCannonballCode;
         _cannonSpawnPoint = cannonSpawnPoint; // Referansı dışarıdan alıyoruz.
-        
+
         _cannonballInventory.Clear();
         if (inventory != null)
         {
@@ -39,9 +42,10 @@ public class ShipCombat : NetworkBehaviour
                 _cannonballInventory[item.CannonballCode] = item.Quantity;
             }
         }
-        
+
         var inventoryWrapper = new ShipCannonballInventoryWrapper { Inventory = inventory };
-        SyncInventoryClientRpc(inventoryWrapper, new ClientRpcParams { Send = new ClientRpcSendParams { TargetClientIds = new[] { OwnerClientId } } });
+        SyncInventoryClientRpc(inventoryWrapper,
+            new ClientRpcParams { Send = new ClientRpcSendParams { TargetClientIds = new[] { OwnerClientId } } });
     }
 
     public void InitializeForNpc(int cannonballCode, Transform cannonSpawnPoint)
@@ -49,7 +53,7 @@ public class ShipCombat : NetworkBehaviour
         if (!IsServer) return;
         EquippedCannonballCode.Value = cannonballCode;
         _cannonSpawnPoint = cannonSpawnPoint; // Referansı dışarıdan alıyoruz.
-        
+
         // NPC'lerin şimdilik sonsuz mühimmatı olsun.
         _cannonballInventory[cannonballCode] = 9999;
     }
@@ -81,14 +85,15 @@ public class ShipCombat : NetworkBehaviour
         }
 
         var gameDataService = ServiceLocator.Current.Get<GameDataService>();
-        CannonballTypeDto equippedCannonballStats =
+        var equippedCannonballStats =
             gameDataService.GetCannonballStatsByCode(EquippedCannonballCode.Value);
 
         if (equippedCannonballStats == null) return;
 
-        float totalRange = _shipStats.Range.Value + equippedCannonballStats.RangeBonus;
+        var totalRange = _shipStats.Range.Value + equippedCannonballStats.RangeBonus;
         if (Vector3.Distance(transform.position, targetObject.transform.position) > totalRange) return;
         if (Time.time < _lastAttackTime + _shipStats.Cooldown.Value) return;
+        if (_attackRequestPending) return;
 
         if (!_cannonballInventory.TryGetValue(EquippedCannonballCode.Value, out int count) || count <= 0)
         {
@@ -97,29 +102,62 @@ public class ShipCombat : NetworkBehaviour
         }
 
         var cannonballDb = GameManager.Instance.CannonballDatabase;
-        CannonballData equippedCannonballTemplate = cannonballDb.GetCannonballByCode(EquippedCannonballCode.Value);
-        if (equippedCannonballTemplate == null) return;
+        var equippedCannonballTemplate = cannonballDb.GetCannonballByCode(EquippedCannonballCode.Value);
+        if (!equippedCannonballTemplate) return;
 
-        PerformAttack(targetObject, equippedCannonballTemplate, equippedCannonballStats);
+        // Sunucu tarafında API'den saldırı sonucunu al ve hasarı uygula
+        RequestAttackFromApiAndFire(targetObject, equippedCannonballTemplate, equippedCannonballStats);
     }
 
-    private void PerformAttack(NetworkObject targetObject, CannonballData cannonballTemplate,
-        CannonballTypeDto cannonballStats)
+    private async void RequestAttackFromApiAndFire(NetworkObject targetObject, CannonballData cannonballTemplate,
+        CannonballDto cannonballStats)
     {
-        _cannonballInventory[cannonballStats.Code]--;
-        _lastAttackTime = Time.time;
+        _attackRequestPending = true;
+        _lastAttackTime = Time.time; // Cooldown başlatılır
 
-        FireEffectsClientRpc(cannonballStats.Code);
+        var resolvedDamage = 0;
+        try
+        {
+            var playerApi = ServiceLocator.Current.Get<PlayerApiService>();
+            var attackerIdentity = GetComponent<ShipIdentity>();
+            var targetIdentity = targetObject.GetComponent<ShipIdentity>();
+            if (attackerIdentity && targetIdentity)
+            {
+                Guid attackerGuid = new Guid(attackerIdentity.shipId.Value.ToString());
+                Guid targetGuid = new Guid(targetIdentity.shipId.Value.ToString());
+                var apiResult = await playerApi.ProcessAttackAsync(attackerGuid, targetGuid);
+                if (apiResult != null)
+                {
+                    resolvedDamage = apiResult.Damage;
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"[ShipCombat] API saldırı isteği sırasında hata: {e.Message}");
+        }
+        finally
+        {
+            // Mühimmat tüketimi (başarılı/başarısız denemede de azaltılabilir)
+            if (_cannonballInventory.ContainsKey(cannonballStats.Code))
+            {
+                _cannonballInventory[cannonballStats.Code]--;
+            }
 
-        GameObject projectileInstance = Instantiate(cannonballTemplate.projectilePrefab, _cannonSpawnPoint.position,
-            _cannonSpawnPoint.rotation);
-        projectileInstance.GetComponent<NetworkObject>().Spawn();
-        projectileInstance.GetComponent<CannonballProjectile>().Initialize(
-            targetObject.NetworkObjectId,
-            cannonballStats.BaseDamage,
-            30,
-            cannonballTemplate.cannonballCode
-        );
+            FireEffectsClientRpc(cannonballStats.Code);
+
+            GameObject projectileInstance = Instantiate(cannonballTemplate.projectilePrefab, _cannonSpawnPoint.position,
+                _cannonSpawnPoint.rotation);
+            projectileInstance.GetComponent<NetworkObject>().Spawn();
+            projectileInstance.GetComponent<CannonballProjectile>().Initialize(
+                targetObject.NetworkObjectId,
+                resolvedDamage,
+                30,
+                cannonballTemplate.cannonballCode
+            );
+
+            _attackRequestPending = false;
+        }
     }
 
     [ClientRpc]

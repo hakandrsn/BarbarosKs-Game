@@ -44,7 +44,7 @@ public class PlayerHUDController : MonoBehaviour
         _localPlayerShipStats = playerTransform.GetComponent<ShipStats>();
 
 
-        if (_localPlayerHealth == null) return;
+        if (!_localPlayerHealth) return;
 
         // Hem anlık can hem de maksimum can değeri değiştiğinde UI'ı güncellemek için abone ol.
         _localPlayerHealth.CurrentHealth.OnValueChanged += UpdateCurrentHealthUI;

@@ -140,7 +140,7 @@ public class GameManager : MonoBehaviour
     private async Task InitializeGameDataAsync()
     {
         var cannonballApi = ServiceLocator.Current.Get<CannonballApiService>();
-        List<CannonballTypeDto> typesFromApi = await cannonballApi.GetAllCannonballTypesAsync();
+        List<CannonballDto> typesFromApi = await cannonballApi.GetAllCannonballTypesAsync();
     
         if (typesFromApi != null)
         {

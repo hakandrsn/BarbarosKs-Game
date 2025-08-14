@@ -84,7 +84,7 @@ public class CannonballUIController : MonoBehaviour
 
             if (quantity <= 0) continue;
 
-            CannonballTypeDto cannonballStats = _gameDataService.GetCannonballStatsByCode(code);
+            CannonballDto cannonballStats = _gameDataService.GetCannonballStatsByCode(code);
             if (cannonballStats == null) continue;
 
             GameObject itemGO = Instantiate(_listItemPrefab, _listContentArea);

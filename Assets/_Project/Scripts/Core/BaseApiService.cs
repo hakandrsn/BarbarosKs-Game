@@ -30,6 +30,23 @@ public abstract class BaseApiService
         HttpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", JwtToken);
     }
 
+	/// <summary>
+	/// Returns the currently stored JWT token (if any).
+	/// </summary>
+	protected static string GetToken()
+	{
+		return JwtToken;
+	}
+
+	/// <summary>
+	/// Clears the currently stored JWT token and removes the Authorization header from the shared HttpClient.
+	/// </summary>
+	protected static void ClearToken()
+	{
+		JwtToken = null;
+		HttpClient.DefaultRequestHeaders.Authorization = null;
+	}
+
     protected static async Task<T> GetAsync<T>(string endpoint, bool requireAuth = true)
     {
         if (requireAuth && string.IsNullOrEmpty(JwtToken))
@@ -57,6 +74,45 @@ public abstract class BaseApiService
             return default;
         }
     }
+
+	/// <summary>
+	/// GET with per-request override token support. If overrideToken is provided, it will be used only for this request.
+	/// </summary>
+	protected static async Task<T> GetAsync<T>(string endpoint, bool requireAuth, string overrideToken)
+	{
+		if (requireAuth && string.IsNullOrEmpty(overrideToken) && string.IsNullOrEmpty(JwtToken))
+		{
+			Debug.LogError($"Authentication required, but no token found for GET request: {endpoint}");
+			return default;
+		}
+
+		try
+		{
+			using (var request = new HttpRequestMessage(HttpMethod.Get, endpoint))
+			{
+				if (requireAuth && !string.IsNullOrEmpty(overrideToken))
+				{
+					request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", overrideToken);
+				}
+
+				var response = await HttpClient.SendAsync(request);
+				var responseJson = await response.Content.ReadAsStringAsync();
+
+				if (response.IsSuccessStatusCode)
+				{
+					return JsonConvert.DeserializeObject<T>(responseJson);
+				}
+
+				Debug.LogError($"API GET Error: {response.StatusCode} - {responseJson} ({endpoint})");
+				return default;
+			}
+		}
+		catch (Exception e)
+		{
+			Debug.LogError($"Exception during API GET request: {e.Message} ({endpoint})");
+			return default;
+		}
+	}
 
     protected async Task<TResponse> PostAsync<TRequest, TResponse>(string endpoint, TRequest payload, bool requireAuth = true)
     {
@@ -91,6 +147,49 @@ public abstract class BaseApiService
         }
     }
 
+	/// <summary>
+	/// POST with per-request override token support. If overrideToken is provided, it will be used only for this request.
+	/// </summary>
+	protected async Task<TResponse> PostAsync<TRequest, TResponse>(string endpoint, TRequest payload, bool requireAuth, string overrideToken)
+	{
+		if (requireAuth && string.IsNullOrEmpty(overrideToken) && string.IsNullOrEmpty(JwtToken))
+		{
+			Debug.LogError($"Authentication required, but no token found for POST request: {endpoint}");
+			return default;
+		}
+
+		try
+		{
+			var jsonPayload = JsonConvert.SerializeObject(payload);
+			var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
+
+			using (var request = new HttpRequestMessage(HttpMethod.Post, endpoint))
+			{
+				request.Content = content;
+				if (requireAuth && !string.IsNullOrEmpty(overrideToken))
+				{
+					request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", overrideToken);
+				}
+
+				var response = await HttpClient.SendAsync(request);
+				var responseJson = await response.Content.ReadAsStringAsync();
+
+				if (response.IsSuccessStatusCode)
+				{
+					return JsonConvert.DeserializeObject<TResponse>(responseJson);
+				}
+
+				try { return JsonConvert.DeserializeObject<TResponse>(responseJson); }
+				catch { return default; }
+			}
+		}
+		catch (Exception e)
+		{
+			Debug.LogError($"Exception during API POST request: {e.Message} ({endpoint})");
+			return default;
+		}
+	}
+
     /// <summary>
     /// Sends a PUT request to the specified endpoint to update a resource.
     /// </summary>
@@ -107,10 +206,13 @@ public abstract class BaseApiService
             var jsonPayload = JsonConvert.SerializeObject(payload);
             var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
 
-            var response = await HttpClient.PutAsync(endpoint, content);
-            var responseJson = await response.Content.ReadAsStringAsync();
-            
-            return JsonConvert.DeserializeObject<TResponse>(responseJson);
+			using (var request = new HttpRequestMessage(HttpMethod.Put, endpoint))
+			{
+				request.Content = content;
+				var response = await HttpClient.SendAsync(request);
+				var responseJson = await response.Content.ReadAsStringAsync();
+				return JsonConvert.DeserializeObject<TResponse>(responseJson);
+			}
         }
         catch (Exception e)
         {
@@ -118,6 +220,42 @@ public abstract class BaseApiService
             return default;
         }
     }
+
+	/// <summary>
+	/// PUT with per-request override token support. If overrideToken is provided, it will be used only for this request.
+	/// </summary>
+	protected async Task<TResponse> PutAsync<TRequest, TResponse>(string endpoint, TRequest payload, bool requireAuth, string overrideToken)
+	{
+		if (requireAuth && string.IsNullOrEmpty(overrideToken) && string.IsNullOrEmpty(JwtToken))
+		{
+			Debug.LogError($"Authentication required, but no token found for PUT request: {endpoint}");
+			return default;
+		}
+
+		try
+		{
+			var jsonPayload = JsonConvert.SerializeObject(payload);
+			var content = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
+
+			using (var request = new HttpRequestMessage(HttpMethod.Put, endpoint))
+			{
+				request.Content = content;
+				if (requireAuth && !string.IsNullOrEmpty(overrideToken))
+				{
+					request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", overrideToken);
+				}
+
+				var response = await HttpClient.SendAsync(request);
+				var responseJson = await response.Content.ReadAsStringAsync();
+				return JsonConvert.DeserializeObject<TResponse>(responseJson);
+			}
+		}
+		catch (Exception e)
+		{
+			Debug.LogError($"Exception during API PUT request: {e.Message} ({endpoint})");
+			return default;
+		}
+	}
 
     /// <summary>
     /// Sends a DELETE request to the specified endpoint to delete a resource.
@@ -133,7 +271,7 @@ public abstract class BaseApiService
 
         try
         {
-            var response = await HttpClient.DeleteAsync(endpoint);
+			var response = await HttpClient.DeleteAsync(endpoint);
             
             if (!response.IsSuccessStatusCode)
             {
@@ -149,4 +287,41 @@ public abstract class BaseApiService
             return false;
         }
     }
+
+	/// <summary>
+	/// DELETE with per-request override token support. If overrideToken is provided, it will be used only for this request.
+	/// </summary>
+	protected async Task<bool> DeleteAsync(string endpoint, bool requireAuth, string overrideToken)
+	{
+		if (requireAuth && string.IsNullOrEmpty(overrideToken) && string.IsNullOrEmpty(JwtToken))
+		{
+			Debug.LogError($"Authentication required, but no token found for DELETE request: {endpoint}");
+			return false;
+		}
+
+		try
+		{
+			using (var request = new HttpRequestMessage(HttpMethod.Delete, endpoint))
+			{
+				if (requireAuth && !string.IsNullOrEmpty(overrideToken))
+				{
+					request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", overrideToken);
+				}
+
+				var response = await HttpClient.SendAsync(request);
+				if (!response.IsSuccessStatusCode)
+				{
+					var responseJson = await response.Content.ReadAsStringAsync();
+					Debug.LogError($"API DELETE Error: {response.StatusCode} - {responseJson} ({endpoint})");
+				}
+
+				return response.IsSuccessStatusCode;
+			}
+		}
+		catch (Exception e)
+		{
+			Debug.LogError($"Exception during API DELETE request: {e.Message} ({endpoint})");
+			return false;
+		}
+	}
 }

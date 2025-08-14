@@ -8,7 +8,7 @@ using UnityEngine.UI;
 public class Health : NetworkBehaviour
 {
     [Header("Health Settings")]
-    [SerializeField] private int _maxHealth = 100;
+    [SerializeField] private int _maxHealth;
     [SerializeField] private Slider _healthBar;
     
     [Header("Destruction Settings")]
@@ -22,10 +22,19 @@ public class Health : NetworkBehaviour
     private NetworkVariable<bool> _isDead = new NetworkVariable<bool>(false);
     public void Initialize(int maxHealth, int currentHealth)
     {
-        if (!IsServer) return;
+		if (!IsServer)
+		{
+			Debug.LogWarning($"[Health {NetworkObjectId}] Initialize clientta çağrıldı, yoksayılıyor.");
+			return;
+		}
+		Debug.Log($"[Health {NetworkObjectId}] Initialize(SERVER) çağrıldı | Max={maxHealth} Current={currentHealth}");
         MaxHealth.Value = maxHealth;
         CurrentHealth.Value = currentHealth;
         _isDead.Value = false;
+		if (CurrentHealth.Value <= 0)
+		{
+			Debug.LogWarning($"[Health {NetworkObjectId}] Initialize sonrası CurrentHealth <= 0! Gemi ölü spawn olabilir.");
+		}
     }
 
     public override void OnNetworkSpawn()
@@ -34,6 +43,7 @@ public class Health : NetworkBehaviour
         MaxHealth.OnValueChanged += OnMaxHealthChanged;
         CurrentHealth.OnValueChanged += OnCurrentHealthChanged;
 
+		Debug.Log($"[Health {NetworkObjectId}] OnNetworkSpawn | IsServer={IsServer} Max={MaxHealth.Value} Current={CurrentHealth.Value}");
         // Başlangıç değerlerini UI'a yansıt.
         OnMaxHealthChanged(0, MaxHealth.Value);
         OnCurrentHealthChanged(0, CurrentHealth.Value);
@@ -49,16 +59,24 @@ public class Health : NetworkBehaviour
     private void OnMaxHealthChanged(int previousValue, int newValue)
     {
         if (_healthBar) _healthBar.maxValue = newValue;
+		Debug.Log($"[Health {NetworkObjectId}] MaxHealth değişti: {previousValue} -> {newValue}");
     }
 
     private void OnCurrentHealthChanged(int previousValue, int newValue)
     {
         if (_healthBar) _healthBar.value = newValue;
+		Debug.Log($"[Health {NetworkObjectId}] CurrentHealth değişti: {previousValue} -> {newValue}");
     }
 
     public void TakeDamage(int damage)
     {
-        if (!IsServer || _isDead.Value) return; 
+		if (!IsServer || _isDead.Value) return; 
+		if (damage <= 0)
+		{
+			Debug.LogWarning($"[Health {NetworkObjectId}] Sıfır/negatif damage yoksayıldı: {damage}");
+			return;
+		}
+		Debug.Log($"[Health {NetworkObjectId}] TakeDamage(SERVER): {damage} | Before={CurrentHealth.Value}");
         
         CurrentHealth.Value = Mathf.Max(0, CurrentHealth.Value - damage);
         
@@ -66,6 +84,7 @@ public class Health : NetworkBehaviour
         {
             // --- ÖLÜM SÜRECİNİ BAŞLAT ---
             _isDead.Value = true;
+			Debug.Log($"[Health {NetworkObjectId}] ÖLÜM tetiklendi. Yok edilme gecikmesi: {_destructionDelay}s");
             // StartDestructionSequenceClientRpc(); // Tüm client'lara animasyonu başlatmalarını söyle.
             StartCoroutine(DestroyAfterDelay());  // Sunucuda, gecikmeli yok etme işlemini başlat.
 
@@ -100,7 +119,7 @@ public class Health : NetworkBehaviour
     {
         // Bu coroutine SADECE SUNUCUDA çalışır.
         yield return new WaitForSeconds(_destructionDelay);
-
+		Debug.Log($"[Health {NetworkObjectId}] Despawn çağrılıyor.");
         // Belirtilen süre sonunda, network objesini tüm client'lardan kaldır.
         GetComponent<NetworkObject>().Despawn(true);
     }

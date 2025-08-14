@@ -40,7 +40,7 @@ public class PlayerController : NetworkBehaviour
         {
             Debug.Log($"[PC-LOG {NetworkObjectId}] SUNUCU tarafı: NavMeshAgent bileşeni alınıyor.");
             _navMeshAgent = GetComponent<NavMeshAgent>();
-            if (_navMeshAgent == null) Debug.LogError($"[PC-LOG {NetworkObjectId}] SUNUCU HATA: NavMeshAgent bulunamadı!");
+            if (!_navMeshAgent) Debug.LogError($"[PC-LOG {NetworkObjectId}] SUNUCU HATA: NavMeshAgent bulunamadı!");
         }
         else // Client ise, NavMeshAgent'ı devre dışı bırak.
         {
@@ -64,7 +64,15 @@ public class PlayerController : NetworkBehaviour
     {
         Debug.Log($"[PC-LOG {NetworkObjectId}] InitializeClientControls çağrıldı.");
         _mainCamera = Camera.main;
-        if (_mainCamera == null) Debug.LogError($"[PC-LOG {NetworkObjectId}] HATA: Camera.main bulunamadı!");
+        if (!_mainCamera) Debug.LogError($"[PC-LOG {NetworkObjectId}] HATA: Camera.main bulunamadı!");
+
+        var currentEventSystem = EventSystem.current;
+        var inputModuleName = currentEventSystem != null && currentEventSystem.currentInputModule != null
+            ? currentEventSystem.currentInputModule.GetType().Name
+            : "NULL";
+        Debug.Log($"[PC-LOG {NetworkObjectId}] EventSystem mevcut mu: {(currentEventSystem != null)} | ActiveInputModule: {inputModuleName}");
+        Debug.Log($"[PC-LOG {NetworkObjectId}] Cursor.lockState={Cursor.lockState} visible={Cursor.visible}");
+        Debug.Log($"[PC-LOG {NetworkObjectId}] LayerMasks | movement={_movementLayerMask.value} target={_targetLayerMask.value}");
 
         OnLocalPlayerShipReady?.Invoke(transform);
         Debug.Log($"[PC-LOG {NetworkObjectId}] OnLocalPlayerShipReady olayı tetiklendi.");
@@ -95,21 +103,48 @@ public class PlayerController : NetworkBehaviour
     private void HandlePrimaryClick(InputAction.CallbackContext context)
     {
         Debug.Log($"[PC-LOG {NetworkObjectId}] HandlePrimaryClick tetiklendi.");
-        if (!IsOwner || EventSystem.current.IsPointerOverGameObject())
+        var hasEventSystem = EventSystem.current != null;
+        bool pointerOver = hasEventSystem && EventSystem.current.IsPointerOverGameObject();
+
+        if (!IsOwner || pointerOver)
         {
-             Debug.LogWarning($"[PC-LOG {NetworkObjectId}] HandlePrimaryClick durduruldu. IsOwner: {IsOwner}, IsPointerOverGameObject: {EventSystem.current.IsPointerOverGameObject()}");
+             Debug.LogWarning($"[PC-LOG {NetworkObjectId}] HandlePrimaryClick durduruldu. IsOwner: {IsOwner}, HasEventSystem: {hasEventSystem}, IsPointerOverGameObject: {pointerOver}");
+
+             if (pointerOver)
+             {
+                 try
+                 {
+                     var screenPositionDbg = _playerInputActions.Player.MousePosition.ReadValue<Vector2>();
+                     var ped = new PointerEventData(EventSystem.current) { position = screenPositionDbg };
+                     var raycastResults = new System.Collections.Generic.List<RaycastResult>();
+                     EventSystem.current.RaycastAll(ped, raycastResults);
+                     if (raycastResults.Count > 0)
+                     {
+                         var top = raycastResults[0];
+                         Debug.LogWarning($"[PC-LOG {NetworkObjectId}] UI raycast tıklamayı blokluyor. Top={top.gameObject.name} | Module={top.module} | SortingOrder={top.sortingOrder}");
+                     }
+                     else
+                     {
+                         Debug.LogWarning($"[PC-LOG {NetworkObjectId}] IsPointerOverGameObject=true fakat RaycastAll sonuç yok.");
+                     }
+                 }
+                 catch (Exception ex)
+                 {
+                     Debug.LogWarning($"[PC-LOG {NetworkObjectId}] UI raycast debug sırasında hata: {ex.Message}");
+                 }
+             }
              return;
         }
 
-        Vector2 screenPosition = _playerInputActions.Player.MousePosition.ReadValue<Vector2>();
-        Ray ray = _mainCamera.ScreenPointToRay(screenPosition);
+        var screenPosition = _playerInputActions.Player.MousePosition.ReadValue<Vector2>();
+        var ray = _mainCamera.ScreenPointToRay(screenPosition);
         Debug.Log($"[PC-LOG {NetworkObjectId}] Raycast için ışın oluşturuldu. Hedef: {screenPosition}");
         
         // Öncelik 1: Hedeflenebilir bir şeye mi tıklandı?
-        if (Physics.Raycast(ray, out RaycastHit hitTarget, 1000f, _targetLayerMask))
+        if (Physics.Raycast(ray, out var hitTarget, 1000f, _targetLayerMask))
         {
             Debug.Log($"[PC-LOG {NetworkObjectId}] Raycast bir hedefe çarptı: {hitTarget.collider.name}");
-            if (hitTarget.collider.TryGetComponent<Targetable>(out Targetable newTarget) && newTarget.gameObject != this.gameObject)
+            if (hitTarget.collider.TryGetComponent<Targetable>(out var newTarget) && newTarget.gameObject != this.gameObject)
             {
                 SetTarget(newTarget);
                 return;

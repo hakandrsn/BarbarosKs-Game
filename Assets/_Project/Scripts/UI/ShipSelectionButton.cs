@@ -21,7 +21,7 @@ public class ShipSelectionButton : MonoBehaviour
         _playerApiService = ServiceLocator.Current.Get<PlayerApiService>();
     }
 
-    public void Setup(ShipDetailDto shipData, Action<Guid> onClickCallback)
+    public void Setup(PlayerShipListDto shipData, Action<Guid> onClickCallback)
     {
         _shipId = shipData.ShipId;
         _onClickCallback = onClickCallback;

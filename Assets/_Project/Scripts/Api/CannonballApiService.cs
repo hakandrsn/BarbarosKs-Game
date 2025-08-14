@@ -7,10 +7,10 @@ using BarbarosKs.Shared.DTOs;
 
 public class CannonballApiService : BaseApiService, IGameService
 {
-    public async Task<List<CannonballTypeDto>> GetAllCannonballTypesAsync()
+    public async Task<List<CannonballDto>> GetAllCannonballTypesAsync()
     {
         // Bu genel bir oyun verisi olduğu için kimlik doğrulaması gerektirmez.
-        return await GetAsync<List<CannonballTypeDto>>("/api/cannonballs/all", false);
+        return await GetAsync<List<CannonballDto>>("/api/cannonballs/all", false);
     }
     
 }
