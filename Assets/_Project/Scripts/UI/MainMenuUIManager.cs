@@ -31,6 +31,8 @@ public class MainMenuUIManager : MonoBehaviour
     [Header("Ship Selection UI")] [SerializeField]
     private RectTransform _shipListContent;
 
+    private RectTransform _selectedShipData;
+
     [SerializeField] private GameObject _shipButtonPrefab;
     [SerializeField] private Button _launchButton;
 
@@ -114,6 +116,9 @@ public class MainMenuUIManager : MonoBehaviour
     {
         _gameSession.SelectedShipId = shipId;
         _launchButton.interactable = true;
+        // _playerApiService.GetShipDetailAsync(shipId);
+        // Debug.Log($"ship data: {JsonUtility.ToJson(_playerApiService.ShipStats)}");
+        // var shipFeatures = Instantiate(_selectedShipData);
         Debug.Log($"Gemi seçildi: {shipId}");
     }
 
