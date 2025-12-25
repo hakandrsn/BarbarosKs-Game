@@ -1,4 +1,5 @@
 // Filename: PlayerController.cs (Restored Server-Authoritative Logic with DETAILED LOGGING)
+
 using System;
 using Unity.Netcode;
 using UnityEngine;
@@ -14,12 +15,14 @@ public class PlayerController : NetworkBehaviour
     public static event Action<Targetable> OnTargetChanged;
 
     // --- Referanslar ve Ayarlar ---
-    [Header("Görsel Ayarlar")]
-    [SerializeField] private GameObject _moveFlagPrefab;
+    [Header("Görsel Ayarlar")] [SerializeField]
+    private GameObject _moveFlagPrefab;
+
     public Transform _cannonSpawnPoint;
 
-    [Header("Katman Maskeleri")]
-    [SerializeField] private LayerMask _movementLayerMask;
+    [Header("Katman Maskeleri")] [SerializeField]
+    private LayerMask _movementLayerMask;
+
     [SerializeField] private LayerMask _targetLayerMask;
 
     // --- Durum Değişkenleri ---
@@ -33,7 +36,8 @@ public class PlayerController : NetworkBehaviour
 
     public override void OnNetworkSpawn()
     {
-        Debug.Log($"[PC-LOG {NetworkObjectId}] OnNetworkSpawn çağrıldı. IsServer: {IsServer}, IsClient: {IsClient}, IsOwner: {IsOwner}");
+        Debug.Log(
+            $"[PC-LOG {NetworkObjectId}] OnNetworkSpawn çağrıldı. IsServer: {IsServer}, IsClient: {IsClient}, IsOwner: {IsOwner}");
 
         // NavMeshAgent'a SADECE SUNUCUDA ihtiyaç duyulur.
         if (IsServer)
@@ -70,9 +74,11 @@ public class PlayerController : NetworkBehaviour
         var inputModuleName = currentEventSystem != null && currentEventSystem.currentInputModule != null
             ? currentEventSystem.currentInputModule.GetType().Name
             : "NULL";
-        Debug.Log($"[PC-LOG {NetworkObjectId}] EventSystem mevcut mu: {(currentEventSystem != null)} | ActiveInputModule: {inputModuleName}");
+        Debug.Log(
+            $"[PC-LOG {NetworkObjectId}] EventSystem mevcut mu: {(currentEventSystem != null)} | ActiveInputModule: {inputModuleName}");
         Debug.Log($"[PC-LOG {NetworkObjectId}] Cursor.lockState={Cursor.lockState} visible={Cursor.visible}");
-        Debug.Log($"[PC-LOG {NetworkObjectId}] LayerMasks | movement={_movementLayerMask.value} target={_targetLayerMask.value}");
+        Debug.Log(
+            $"[PC-LOG {NetworkObjectId}] LayerMasks | movement={_movementLayerMask.value} target={_targetLayerMask.value}");
 
         OnLocalPlayerShipReady?.Invoke(transform);
         Debug.Log($"[PC-LOG {NetworkObjectId}] OnLocalPlayerShipReady olayı tetiklendi.");
@@ -108,56 +114,67 @@ public class PlayerController : NetworkBehaviour
 
         if (!IsOwner || pointerOver)
         {
-             Debug.LogWarning($"[PC-LOG {NetworkObjectId}] HandlePrimaryClick durduruldu. IsOwner: {IsOwner}, HasEventSystem: {hasEventSystem}, IsPointerOverGameObject: {pointerOver}");
+            Debug.LogWarning(
+                $"[PC-LOG {NetworkObjectId}] HandlePrimaryClick durduruldu. IsOwner: {IsOwner}, HasEventSystem: {hasEventSystem}, IsPointerOverGameObject: {pointerOver}");
 
-             if (pointerOver)
-             {
-                 try
-                 {
-                     var screenPositionDbg = _playerInputActions.Player.MousePosition.ReadValue<Vector2>();
-                     var ped = new PointerEventData(EventSystem.current) { position = screenPositionDbg };
-                     var raycastResults = new System.Collections.Generic.List<RaycastResult>();
-                     EventSystem.current.RaycastAll(ped, raycastResults);
-                     if (raycastResults.Count > 0)
-                     {
-                         var top = raycastResults[0];
-                         Debug.LogWarning($"[PC-LOG {NetworkObjectId}] UI raycast tıklamayı blokluyor. Top={top.gameObject.name} | Module={top.module} | SortingOrder={top.sortingOrder}");
-                     }
-                     else
-                     {
-                         Debug.LogWarning($"[PC-LOG {NetworkObjectId}] IsPointerOverGameObject=true fakat RaycastAll sonuç yok.");
-                     }
-                 }
-                 catch (Exception ex)
-                 {
-                     Debug.LogWarning($"[PC-LOG {NetworkObjectId}] UI raycast debug sırasında hata: {ex.Message}");
-                 }
-             }
-             return;
+            if (pointerOver)
+            {
+                try
+                {
+                    var screenPositionDbg = _playerInputActions.Player.MousePosition.ReadValue<Vector2>();
+                    var ped = new PointerEventData(EventSystem.current) { position = screenPositionDbg };
+                    var raycastResults = new System.Collections.Generic.List<RaycastResult>();
+                    EventSystem.current.RaycastAll(ped, raycastResults);
+                    if (raycastResults.Count > 0)
+                    {
+                        var top = raycastResults[0];
+                        Debug.LogWarning(
+                            $"[PC-LOG {NetworkObjectId}] UI raycast tıklamayı blokluyor. Top={top.gameObject.name} | Module={top.module} | SortingOrder={top.sortingOrder}");
+                    }
+                    else
+                    {
+                        Debug.LogWarning(
+                            $"[PC-LOG {NetworkObjectId}] IsPointerOverGameObject=true fakat RaycastAll sonuç yok.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogWarning($"[PC-LOG {NetworkObjectId}] UI raycast debug sırasında hata: {ex.Message}");
+                }
+            }
+
+            return;
         }
 
         var screenPosition = _playerInputActions.Player.MousePosition.ReadValue<Vector2>();
         var ray = _mainCamera.ScreenPointToRay(screenPosition);
-        Debug.Log($"[PC-LOG {NetworkObjectId}] Raycast için ışın oluşturuldu. Hedef: {screenPosition}");
-        
-        // Öncelik 1: Hedeflenebilir bir şeye mi tıklandı?
+
+        // ÖNCELİK 1: HEDEF SEÇME VE SALDIRI (MOBA Tarzı)
         if (Physics.Raycast(ray, out var hitTarget, 1000f, _targetLayerMask))
         {
-            Debug.Log($"[PC-LOG {NetworkObjectId}] Raycast bir hedefe çarptı: {hitTarget.collider.name}");
-            if (hitTarget.collider.TryGetComponent<Targetable>(out var newTarget) && newTarget.gameObject != this.gameObject)
+            if (hitTarget.collider.TryGetComponent<Targetable>(out var newTarget) &&
+                newTarget.gameObject != this.gameObject)
             {
+                // 1. Hedefi Seç
                 SetTarget(newTarget);
-                return;
+
+                // 2. Eğer bu bir düşmansa SALDIRI EMRİ VER (Eskiden '1' tuşuyla yapıyordun)
+                // Not: İstersen bunu sağ tıka alabilirsin ama şimdilik "Tıkla ve Saldır" yapıyoruz.
+                ulong targetId = newTarget.GetComponent<NetworkObject>().NetworkObjectId;
+                RequestAttackToggleServerRpc(targetId);
+
+                return; // Hareket etme, sadece saldırıya odaklan.
             }
         }
-        
-        // Öncelik 2: Hareket edilebilir bir yere mi tıklandı?
+
+// ÖNCELİK 2: BOŞA TIKLANDI (HAREKET ET)
         if (Physics.Raycast(ray, out RaycastHit hitMovement, 1000f, _movementLayerMask))
         {
-            Debug.Log($"[PC-LOG {NetworkObjectId}] Raycast bir zemine çarptı: {hitMovement.point}. Sunucuya hareket komutu gönderiliyor.");
+            // Boşa tıklayınca saldırıyı kes
+            RequestAttackToggleServerRpc(ulong.MaxValue);
+
             if (_currentMoveFlag != null) Destroy(_currentMoveFlag);
             _currentMoveFlag = Instantiate(_moveFlagPrefab, hitMovement.point, Quaternion.identity);
-            
             MoveToPositionServerRpc(hitMovement.point);
         }
     }
@@ -167,7 +184,8 @@ public class PlayerController : NetworkBehaviour
         Debug.Log($"[PC-LOG {NetworkObjectId}] HandleAttack tetiklendi.");
         if (!IsOwner || CurrentTarget == null)
         {
-            Debug.LogWarning($"[PC-LOG {NetworkObjectId}] HandleAttack durduruldu. IsOwner: {IsOwner}, CurrentTarget: {(CurrentTarget == null ? "NULL" : CurrentTarget.name)}");
+            Debug.LogWarning(
+                $"[PC-LOG {NetworkObjectId}] HandleAttack durduruldu. IsOwner: {IsOwner}, CurrentTarget: {(CurrentTarget == null ? "NULL" : CurrentTarget.name)}");
             return;
         }
 
@@ -175,7 +193,7 @@ public class PlayerController : NetworkBehaviour
         Debug.Log($"[PC-LOG {NetworkObjectId}] Sunucuya saldırı komutu gönderiliyor. Hedef ID: {targetId}");
         RequestAttackToggleServerRpc(targetId);
     }
-    
+
     private void SetTarget(Targetable newTarget)
     {
         if (newTarget == CurrentTarget) return;
@@ -194,7 +212,8 @@ public class PlayerController : NetworkBehaviour
             return;
         }
 
-        Debug.Log($"[PC-LOG {NetworkObjectId}] SUNUCU: NavMeshAgent'ın isOnNavMesh durumu: {_navMeshAgent.isOnNavMesh}");
+        Debug.Log(
+            $"[PC-LOG {NetworkObjectId}] SUNUCU: NavMeshAgent'ın isOnNavMesh durumu: {_navMeshAgent.isOnNavMesh}");
         if (_navMeshAgent.isOnNavMesh)
         {
             Debug.Log($"[PC-LOG {NetworkObjectId}] SUNUCU: SetDestination çağrılıyor.");
@@ -202,10 +221,11 @@ public class PlayerController : NetworkBehaviour
         }
         else
         {
-            Debug.LogWarning($"[PC-LOG {NetworkObjectId}] SUNUCU UYARI: Gemi bir NavMesh üzerinde değil, hareket komutu yoksayılıyor.");
+            Debug.LogWarning(
+                $"[PC-LOG {NetworkObjectId}] SUNUCU UYARI: Gemi bir NavMesh üzerinde değil, hareket komutu yoksayılıyor.");
         }
     }
-    
+
     [ServerRpc]
     private void RequestAttackToggleServerRpc(ulong targetId)
     {

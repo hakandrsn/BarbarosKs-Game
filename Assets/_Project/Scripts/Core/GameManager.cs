@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using _Project.Scripts.Api;
 using BarbarosKs.Shared.DTOs;
 using Unity.Netcode;
 using UnityEngine;
@@ -13,10 +14,8 @@ public class GameManager : MonoBehaviour
 {
     public static GameManager Instance { get; private set; }
     public NpcData TestNpcData;
-    [Header("Network Prefabs")]
-    public GameObject ShipPrefab;
-    [Header("Game Databases")]
-    public CannonballDatabase CannonballDatabase;
+    [Header("Network Prefabs")] public GameObject ShipPrefab;
+    [Header("Game Databases")] public CannonballDatabase CannonballDatabase;
 
     private readonly Dictionary<ulong, Guid> _clientShipSelections = new();
     private PlayerManager _playerManager;
@@ -57,7 +56,7 @@ public class GameManager : MonoBehaviour
         // Sunucu, hazır olur olmaz tüm mevcut ve gelecek client'ları "Main" sahnesine yönlendirir.
         Debug.Log("[GameManager] 'Main' sahnesi yükleniyor...");
         NetworkManager.Singleton.SceneManager.LoadScene("Main", LoadSceneMode.Single);
-        
+
         var npcManager = ServiceLocator.Current.Get<NpcManager>();
         npcManager.Initialize(TestNpcData);
         npcManager.SpawnTestNpcs();
@@ -74,12 +73,18 @@ public class GameManager : MonoBehaviour
         serviceLocator.Register(new GameSession());
         serviceLocator.Register(new PlayerInventory());
         serviceLocator.Register(new NpcManager());
-        // PlayerManager'ı oluşturuyoruz ama artık IGameService olarak kaydetmiyoruz.
+        // ServerSessionManager, MonoBehaviour olduğu için AddComponent ile eklenmeli.
+        // Sadece sunucu tarafında çalışması gerekse de, ServiceLocator'da null check ile uğraşmamak için
+        // ekleyebiliriz, kendi içinde IsServer kontrolü zaten var.
+        var sessionManager = gameObject.AddComponent<ServerSessionManager>();
+        serviceLocator.Register(sessionManager);
+        Debug.Log("[GameManager] ServerSessionManager servislere eklendi.");
         _playerManager = new PlayerManager();
         serviceLocator.Register(_playerManager);
     }
 
-    private void ConnectionApprovalCheck(NetworkManager.ConnectionApprovalRequest request, NetworkManager.ConnectionApprovalResponse response)
+    private void ConnectionApprovalCheck(NetworkManager.ConnectionApprovalRequest request,
+        NetworkManager.ConnectionApprovalResponse response)
     {
         var clientId = request.ClientNetworkId;
         var payloadBytes = request.Payload;
@@ -117,11 +122,11 @@ public class GameManager : MonoBehaviour
     private void OnClientLoadComplete(ulong clientId, string sceneName, LoadSceneMode loadSceneMode)
     {
         if (sceneName != "Main") return;
-        
+
         // --- YENİ VE DAHA BASİT MANTIK ---
         // Dedicated Server'ın kendisi için (clientId=0) oyuncu spawn etmesini engellemeye GEREK YOK,
         // çünkü ConnectionApproval'da onun için bir gemi ID'si hiç saklanmadı.
-        
+
         if (_clientShipSelections.TryGetValue(clientId, out Guid shipId))
         {
             Debug.Log($"[GameManager] Main sahnesi yüklendi. Client {clientId} için spawn işlemi başlatılıyor.");
@@ -131,22 +136,28 @@ public class GameManager : MonoBehaviour
         else
         {
             // Bu log, sadece Dedicated Server (clientId=0) için görünmeli, bu normaldir.
-            Debug.LogWarning($"[GameManager] Client {clientId} için spawn edilecek gemi bulunamadı (Bu bir Dedicated Server olabilir).");
+            Debug.LogWarning(
+                $"[GameManager] Client {clientId} için spawn edilecek gemi bulunamadı (Bu bir Dedicated Server olabilir).");
         }
     }
 
 
-
     private async Task InitializeGameDataAsync()
     {
-        var cannonballApi = ServiceLocator.Current.Get<CannonballApiService>();
-        List<CannonballDto> typesFromApi = await cannonballApi.GetAllCannonballTypesAsync();
-    
-        if (typesFromApi != null)
+        // Eski servis yerine yenisini kullanıyoruz
+        // ServiceLocator'a GameDataApiService'i eklemeyi unutma! (InitializeServices metodunda)
+        var gameDataApi = ServiceLocator.Current.Get<GameDataApiService>();
+
+        List<CannonballDto> typesFromApi = await gameDataApi.GetAllCannonballTypesAsync();
+
+        if (typesFromApi != null && typesFromApi.Count > 0)
         {
             var gameDataService = ServiceLocator.Current.Get<GameDataService>();
             gameDataService.Initialize(typesFromApi);
-            Debug.Log($"API'den {typesFromApi.Count} gülle tipi verisi yüklendi.");
+        }
+        else
+        {
+            Debug.LogError("KRİTİK HATA: Gülle verileri API'den gelmedi! Oyun düzgün çalışmayabilir.");
         }
     }
 

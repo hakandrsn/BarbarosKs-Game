@@ -1,0 +1,39 @@
+﻿{
+  "output": {
+    "filePath": "repomix-output.xml",
+    "style": "xml",
+    "headerText": "Unity Project Source Code"
+  },
+  "include": [
+    "Assets/**/*.cs",
+    "Assets/**/*.shader",
+    "Assets/**/*.uss",
+    "Assets/**/*.uxml",
+    "Packages/**/*.cs"
+  ],
+  "ignore": {
+    "useGitignore": true,
+    "useDefaultPatterns": true,
+    "customPatterns": [
+      "**/*.meta",
+      "Library/**",
+      "Temp/**",
+      "Logs/**",
+      "UserSettings/**",
+      "Builds/**",
+      "Obj/**",
+      "**/*.csproj",
+      "**/*.sln",
+      "**/*.mat",
+      "**/*.prefab",
+      "**/*.unity",
+      "**/*.asset",
+      "**/*.png",
+      "**/*.jpg",
+      "**/*.tga",
+      "**/*.fbx",
+      ".vs/**",
+      ".idea/**"
+    ]
+  }
+}

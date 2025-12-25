@@ -22,4 +22,20 @@ public class PlayerInventory : IGameService
     
     // Bu metotları client-taraflı UI güncellemeleri için kullanabiliriz.
     public int GetQuantity(int code) => _cannonballQuantities.TryGetValue(code, out int quantity) ? quantity : 0;
+    
+    public void SetQuantity(int code, int quantity)
+    {
+        if (_cannonballQuantities.ContainsKey(code))
+        {
+            _cannonballQuantities[code] = quantity;
+        }
+        else
+        {
+            _cannonballQuantities.Add(code, quantity);
+        }
+    
+        // UI'ın güncellenmesi için bir event tetiklemek iyi olurdu ama
+        // şimdilik CannonballUIController her açılışta yeniliyor.
+        // Eğer anlık UI (HUD'da gülle sayısı) varsa, burada event fırlatmalısın.
+    }
 }

@@ -1,163 +1,134 @@
-﻿// Filename: PlayerManager.cs (Final Simplified Version)
+﻿// Filename: PlayerManager.cs (Final Clean Version)
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using BarbarosKs.Shared.DTOs;
 using Unity.Netcode;
 using UnityEngine;
 using Unity.Collections;
 
-// Bu script artık bir IGameService olmak zorunda değil.
 public class PlayerManager : IGameService
 {
-    // Bu metot artık sadece GameManager tarafından çağrılıyor.
+    // Bu metot, GameManager tarafından sahne yüklendiğinde çağrılır.
+    // ReSharper disable Unity.PerformanceAnalysis
     public async void SpawnPlayer(ulong clientId, Guid shipIdToSpawn)
     {
-        Debug.Log($"[SPAWN] SpawnPlayer çağrıldı | clientId={clientId} shipIdToSpawn={shipIdToSpawn}");
+        Debug.Log($"[Spawn] Client {clientId} için {shipIdToSpawn} gemisi verisi isteniyor...");
+
+        // 1. Backend'den Veriyi Çek (API)
         var playerApiService = ServiceLocator.Current.Get<PlayerApiService>();
-        if (playerApiService == null)
-        {
-            Debug.LogError("[SPAWN] PlayerApiService ServiceLocator üzerinden alınamadı!");
-            return;
-        }
-
-        Debug.Log("[SPAWN] PlayerApiService alındı, sunucuya bağlanılıyor...");
         await playerApiService.ConnectRequestToServerForData(shipIdToSpawn);
-        Debug.Log("[SPAWN] Sunucudan gerekli veriler alındı (ConnectRequestToServerForData tamam)");
-        var playerSession = playerApiService.PlayerSession;
-        var shipData = playerApiService.ShipData;
-        var shipStats = playerApiService.ShipStats;
+        
+        var playerSession = playerApiService.PlayerSession; // Session ID ve Temel Bilgiler
+        var shipData = playerApiService.ShipData;           // Konum, Gülleler, Skinler
+        var shipStats = playerApiService.ShipStats;         // Hız, Zırh, Can (Hesaplanmış)
 
-        if (playerSession == null)
+        // Veri bütünlüğü kontrolü
+        if (playerSession == null || shipData == null || shipStats == null)
         {
-            Debug.LogError("[SPAWN] playerSession null döndü!");
+            Debug.LogError($"[Spawn] HATA: Client {clientId} için API verisi EKSİK geldi! Spawn iptal.");
             return;
         }
+        
+        // 2. Gemiyi Oluştur (Instantiate)
+        var spawnPos = new Vector3(shipData.PositionX, shipData.PositionY, shipData.PositionZ);
+        var spawnRot = new Quaternion(shipData.RotationX, shipData.RotationY, shipData.RotationZ, shipData.RotationW);
+        
+        var shipInstance = UnityEngine.Object.Instantiate(GameManager.Instance.ShipPrefab, spawnPos, spawnRot);
+        var networkObject = shipInstance.GetComponent<NetworkObject>();
+        
+        // Sahipliği Client'a ver
+        networkObject.SpawnAsPlayerObject(clientId, true);
+        Debug.Log($"[Spawn] Gemi oluşturuldu: {shipData.ShipName} (Owner: {clientId})");
 
-        if (shipData == null)
+        // 3. Görsel ve Temel Bileşenleri Doldur (Senkronizasyon)
+        shipInstance.GetComponent<PlayerInfo>().Initialize(shipData.ShipName);
+        shipInstance.GetComponent<ShipIdentity>().shipId.Value = new FixedString128Bytes(playerSession.ShipId.ToString());
+        shipInstance.GetComponent<Health>().Initialize(shipStats.MaxHull, shipStats.CurrentHull);
+        
+        // --- DÖNÜŞTÜRME İŞLEMİ ---
+        // Shared DTO'daki ICollection<InventoryDto>'yu Unity'nin beklediği formata çeviriyoruz.
+        // Eğer Cannonballs null gelirse boş liste oluşturuyoruz.
+        List<InventoryDto> inventoryList = shipData.Cannonballs != null 
+            ? new List<InventoryDto>(shipData.Cannonballs) 
+            : new List<InventoryDto>();
+        
+        // 4. KRİTİK: Sunucu RAM'ine (SessionManager) Kayıt
+        // Burası ateş etme sisteminin "Güllem var mı?" diye soracağı yerdir.
+        if (NetworkManager.Singleton.IsServer)
         {
-            Debug.LogError("[SPAWN] shipData null döndü!");
-            return;
+            var sessionManager = ServiceLocator.Current.Get<ServerSessionManager>();
+        
+            sessionManager.RegisterSession(
+                clientId, 
+                playerSession.ShipId, 
+                shipData.ShipName, 
+                shipStats.CurrentHull, 
+                shipStats.MaxHull, 
+                inventoryList // API'den gelen envanter listesi RAM'e yazılır
+            );
+            Debug.Log($"[Spawn] Sunucu RAM Session oluşturuldu: {shipData.ShipName}");
         }
-
-        if (shipStats == null)
-        {
-            Debug.LogError("[SPAWN] shipStats null döndü!");
-            return;
-        }
-
-        Debug.Log(
-            $"[SPAWN] SessionShipId={playerSession.ShipId} | ShipName={shipData.ShipName} | Pos=({shipData.PositionX},{shipData.PositionY},{shipData.PositionZ}) | Rot=({shipData.RotationX},{shipData.RotationY},{shipData.RotationZ},{shipData.RotationW})");
-        Debug.Log(
-            $"[SPAWN] Stats | MaxHull={shipStats.MaxHull} CurrentHull={shipStats.CurrentHull} Speed={shipStats.Speed} Maneuverability={shipStats.Maneuverability} HitRate={shipStats.HitRate} Range={shipStats.Range} Armor={shipStats.Armor} CurrentVigor={shipStats.CurrentVigor}");
-        // Debug.Log($"Veriler alındı: {shipData.ShipName}, Can: {shipDetail.CurrentHull}/{shipStats.MaxHull}");
-
-        // Gemi pozisyonunu ve rotasyonunu sizin DTO'nuzdaki doğru alan adlarıyla alıyoruz.
-        var spawnPosition = new Vector3(shipData.PositionX, shipData.PositionY, shipData.PositionZ);
-        var spawnRotation = new Quaternion(shipData.RotationX, shipData.RotationY, shipData.RotationZ,
-            shipData.RotationW);
-
-        Debug.Log(
-            $"[SPAWN] Instantiate başlıyor | Prefab={(GameManager.Instance && GameManager.Instance.ShipPrefab ? GameManager.Instance.ShipPrefab.name : "NULL")} | Pos={spawnPosition} Rot={spawnRotation}");
-        var shipInstance = UnityEngine.Object.Instantiate(
-            GameManager.Instance.ShipPrefab,
-            spawnPosition,
-            spawnRotation
-        );
-        Debug.Log($"[SPAWN] Instantiate tamam | Instance='{shipInstance.name}'");
-
-		var networkObject = shipInstance.GetComponent<NetworkObject>();
-		if (!networkObject)
-		{
-			Debug.LogError("[SPAWN] NetworkObject bileşeni gemi prefab'ında bulunamadı!");
-			return;
-		}
-
-		networkObject.SpawnAsPlayerObject(clientId, true);
-		Debug.Log("[SPAWN] NetworkObject.SpawnAsPlayerObject çağrıldı");
-		Debug.Log("[DEBUG-9] Gemi bileşenleri verilerle dolduruluyor (Initialize)...");
-
-		// NetworkVariable yazımlarını SPAWN'dan SONRA yap
-		shipInstance.GetComponent<PlayerInfo>().Initialize(shipData.ShipName);
-		Debug.Log($"[SPAWN] PlayerInfo.Initialize çağrıldı | ShipName='{shipData.ShipName}'");
-		shipInstance.GetComponent<ShipIdentity>().shipId.Value =
-			new FixedString128Bytes(playerSession.ShipId.ToString());
-		Debug.Log($"[SPAWN] ShipIdentity.shipId atandı | {playerSession.ShipId}");
-		shipInstance.GetComponent<Health>().Initialize(shipStats.MaxHull, shipStats.CurrentHull);
-		Debug.Log($"[SPAWN] Health.Initialize çağrıldı | MaxHull={shipStats.MaxHull} CurrentHull={shipStats.CurrentHull}");
-
-		var playerController = shipInstance.GetComponent<PlayerController>();
-        if (!playerController)
-        {
-            Debug.LogError("HATA: Gemi prefab'ının üzerinde PlayerController script'i bulunamadı!");
-            return;
-        }
-
-        Debug.Log("[SPAWN] PlayerController bulundu");
-
-        // yeni bir senkronizer data gelirse buraya ve shipStats ekelenecek
+        
+        // 5. Statları Senkronize Et (Hız, Manevra vb.)
         var statsToSync = new ShipStatsData
         {
             Speed = shipStats.Speed,
-            Maneuverability = shipStats.Maneuverability, // Manevra kabiliyetini doğrudan açısal hıza atıyoruz.
+            Maneuverability = shipStats.Maneuverability,
             HitRate = shipStats.HitRate,
             Range = shipStats.Range,
             Armor = shipStats.Armor,
             CurrentVigor = shipStats.CurrentVigor,
             Cooldown = shipStats.Cooldown,
         };
-        Debug.Log(
-            $"[SPAWN] ShipStatsData hazırlanıyor | Speed={statsToSync.Speed} Maneuverability={statsToSync.Maneuverability} HitRate={statsToSync.HitRate} Range={statsToSync.Range} Armor={statsToSync.Armor} CurrentVigor={statsToSync.CurrentVigor}");
-
-		var shipStatsComponent = shipInstance.GetComponent<ShipStats>();
-        if (!shipStatsComponent)
+        
+        var shipStatsComponent = shipInstance.GetComponent<ShipStats>();
+        if (shipStatsComponent != null)
         {
-            Debug.LogError("[SPAWN] ShipStats bileşeni gemi prefab'ında bulunamadı!");
-            return;
+            shipStatsComponent.InitializeServerRpc(statsToSync);
+        }
+        else
+        {
+            Debug.LogError("[Spawn] ShipStats bileşeni bulunamadı!");
         }
 
-        shipStatsComponent.InitializeServerRpc(statsToSync);
-        Debug.Log("[SPAWN] ShipStats.InitializeServerRpc çağrıldı");
-
-		if (shipData.ActiveCannonballCode != null)
+// 6. Savaş Sistemini Hazırla
+        if (shipData.ActiveCannonballCode.HasValue)
         {
-            shipInstance.GetComponent<ShipCombat>().InitializeForPlayer(
-                shipData.ActiveCannonballCode.Value,
-                shipData.Cannonballs,
-                playerController._cannonSpawnPoint // CannonSpawnPoint referansını PlayerController'dan alıyoruz.
-            );
-            Debug.Log(
-                $"[SPAWN] ShipCombat.InitializeForPlayer çağrıldı | ActiveCannonball='{shipData.ActiveCannonballCode}' CannonballCount={(shipData.Cannonballs != null ? shipData.Cannonballs.Count : 0)} SpawnPointNull={(playerController._cannonSpawnPoint == null)}");
+            var playerController = shipInstance.GetComponent<PlayerController>();
+            var shipCombat = shipInstance.GetComponent<ShipCombat>();
+            
+            if (playerController != null && shipCombat != null)
+            {
+                // ShipCombat eski ShipCannonballInventoryDto istiyor olabilir,
+                // Onu da ShipCombat.cs içinde güncellemiştik ama emin olmak için buraya 
+                // eski tipe dönüştürme mantığı ekleyebiliriz VEYA ShipCombat'ı InventoryDto alacak şekilde güncellediysek direkt veririz.
+                
+                // Eğer ShipCombat hala eski ShipCannonballInventoryDto listesi istiyorsa burayı şöyle güncelle:
+                // Şimdilik 'inventoryList' (InventoryDto listesi) gönderiyorum. 
+                // Eğer ShipCombat.cs hala eski tipteyse orayı da güncellememiz gerekir (Aşağıda belirttim).
+                
+                // NOT: Önceki adımda ShipCombat.InitializeForPlayer metodunu güncellememiştik.
+                // Bu yüzden burada geçici bir çeviri (Map) yapıyorum ki kod patlamasın.
+                // İdeal olan ShipCombat'ı da InventoryDto'ya geçirmektir.
+                
+                var combatInventory = inventoryList.Select(x => new ShipCannonballInventoryDto 
+                { 
+                    CannonballCode = x.ItemCode, // Veya x.Code
+                    Quantity = x.Quantity 
+                }).ToList();
+
+                shipCombat.InitializeForPlayer(
+                    shipData.ActiveCannonballCode.Value,
+                    combatInventory, // Çevrilmiş liste
+                    playerController._cannonSpawnPoint
+                );
+                
+                Debug.Log($"[Spawn] Combat sistemi hazırlandı. Aktif Gülle: {shipData.ActiveCannonballCode.Value}");
+            }
         }
 
-        Debug.Log("[DEBUG-10] SpawnPlayer işlemi başarıyla tamamlandı.");
-    }
-
-    public async void ProcessAttack(ulong attackerId, ulong targetId)
-    {
-        // sunucu, saldıranın ve hedefin kimliğini bulur.
-        if (!NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(targetId,
-                out NetworkObject targetObject) ||
-            !NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(attackerId,
-                out NetworkObject attackerObject))
-        {
-            return;
-        }
-
-        var attackerIdentity = attackerObject.GetComponent<ShipIdentity>();
-        var targetIdentity = targetObject.GetComponent<ShipIdentity>();
-
-        if (attackerIdentity == null || targetIdentity == null) return;
-
-        // Sunucu, ApıManager'ı kullanarak web api dan saldırı sonucunu sorar.
-        var playerApiService = ServiceLocator.Current.Get<PlayerApiService>();
-        AttackResponseDto result = await playerApiService.ProcessAttackAsync(
-            new Guid(attackerIdentity.shipId.Value.ToString()),
-            new Guid(targetIdentity.shipId.Value.ToString()));
-
-        if (result == null) return;
-        // web api dan gelen hasarı uygula
-        if (!targetObject.TryGetComponent<Health>(out Health targetHealth)) return;
-        Debug.Log($"API'den hasar sonucu geldi: {result.Damage}, Kritik: {result.IsCritical}. Uygulanıyor...");
-        targetHealth.TakeDamage(result.Damage);
+        Debug.Log("[Spawn] İşlem Başarıyla Tamamlandı.");
     }
 }

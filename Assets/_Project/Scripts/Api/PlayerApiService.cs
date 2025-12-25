@@ -4,156 +4,160 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using BarbarosKs.Shared.DTOs;
-using UnityEngine; // Hata verirse bu satırı silin
+using BarbarosKs.Shared; // ApiResponse için gerekli
+using UnityEngine;
 
 public class PlayerApiService : BaseApiService, IGameService
 {
-    public List<PlayerShipListDto> Ships { get; private set; }
-    public PlayerSessionDto PlayerSession { get; private set; }
-    public ShipStatsDto ShipStats { get; private set; }
-    public ShipData ShipData { get; private set; }
+    // Önbellek verileri (UI için)
+    public List<PlayerShipListDto> CachedShips { get; private set; }
+    public ShipDetailDto SelectedShipDetails { get; private set; }
 
+    // Olaylar (UI'ın dinlemesi için)
     public event Action OnPlayerShipsReceived;
-    public event Action OnPlayerShipsReceivedFailed;
+    public event Action<string> OnPlayerShipsFailed;
+    
+    public event Action<ShipDetailDto> OnShipDetailReceived;
+    public event Action<string> OnShipDetailFailed;
 
-    public event Action OnPlayerConnected;
-    public event Action OnPlayerConnectFailed;
+    public event Action<ShipDetailDto> OnShipCreated; // Yeni gemi oluşunca
+    public event Action<string> OnShipCreateFailed;
 
+    #region Ship Selection & Management (PlayersController)
 
-	public async Task ConnectRequestToServerForData(Guid shipId, string preferredRegion = null, string overrideToken = null)
-	{
-		var request = new ConnectionRequestDto
-		{
-			ShipId = shipId,
-			PreferredRegion = preferredRegion
-		};
-
-		ApiResponse<ConnectionResponseDto> response;
-		if (!string.IsNullOrEmpty(overrideToken))
-		{
-			// İstek başına token ile POST
-			response = await PostAsync<ConnectionRequestDto, ApiResponse<ConnectionResponseDto>>(
-				"/api/connection/request", request, true, overrideToken);
-		}
-		else
-		{
-			// Global token ile POST (Login sonrası SetToken çağrıldıysa)
-			response = await PostAsync<ConnectionRequestDto, ApiResponse<ConnectionResponseDto>>(
-				"/api/connection/request", request, true);
-		}
-
-		if (response is { Success: true })
-		{
-			var connectionResponse = response.Data;
-			PlayerSession = connectionResponse.PlayerSession;
-			ShipStats = connectionResponse.ShipStats;
-			ShipData = connectionResponse.ShipData;
-			OnPlayerConnected?.Invoke();
-		}
-		else
-		{
-			OnPlayerConnectFailed?.Invoke();
-		}
-	}
-
-    // get all ships list for select
+    /// <summary>
+    /// Oyuncunun sahip olduğu tüm gemileri listeler.
+    /// Endpoint: GET api/players/me/ships
+    /// </summary>
     public async Task GetMyShipsDataAsync()
     {
-        var response = await GetAsync<ApiResponse<List<PlayerShipListDto>>>("/api/players/me/ships");
-        var shipList = response?.Data;
-        if (shipList != null)
+        // API artık ApiResponse<List<...>> dönüyor.
+        var response = await GetAsync<ApiResponse<List<PlayerShipListDto>>>("api/players/me/ships");
+
+        if (response != null && response.Success)
         {
-            Debug.Log($"GetMyShipsDataAsync {shipList.Count}");
-            Ships = shipList;
+            CachedShips = response.Data;
+            Debug.Log($"[PlayerApiService] {CachedShips.Count} gemi alındı.");
             OnPlayerShipsReceived?.Invoke();
         }
         else
         {
-            OnPlayerShipsReceivedFailed?.Invoke();
+            string msg = response?.Message ?? "Gemi listesi alınamadı.";
+            Debug.LogError($"[PlayerApiService] Hata: {msg}");
+            OnPlayerShipsFailed?.Invoke(msg);
         }
     }
 
-    public async Task<AttackResponseDto> ProcessAttackAsync(Guid attackerId, Guid targetId)
+    /// <summary>
+    /// Seçilen geminin detaylarını getirir.
+    /// Endpoint: GET api/players/ships/{id}/details
+    /// </summary>
+    public async Task GetShipDetailAsync(Guid shipId)
     {
-        var payload = new AttackRequestDto
+        string endpoint = $"api/players/ships/{shipId}/details";
+        var response = await GetAsync<ApiResponse<ShipDetailDto>>(endpoint);
+
+        if (response != null && response.Success)
         {
-            AttackerShipId = attackerId,
-            TargetShipId = targetId
-        };
-        return await PostAsync<AttackRequestDto, AttackResponseDto>("/api/gateway/attack", payload);
-    }
-
-    public async Task<ShipRespawnResultDto> RespawnShipAsync(Guid shipId)
-    {
-        var endpoint = $"/api/players/ships/{shipId}/respawn";
-        // JWT gerekli varsayımıyla default requireAuth=true kullanılacak
-        return await PostAsync<object, ShipRespawnResultDto>(endpoint, new { });
-    }
-
-
-    // seçilen geminin özelliklerini getirir ama server için değil clientte görmesi için token gerekli
-    public async Task<ShipDetailResponse> GetShipDetailAsync(Guid shipId)
-    {
-        // Yeni ve güvenli sunucu endpoint'ini çağırıyoruz.
-        var endpoint = $"/api/players/ships/{shipId}/details";
-
-        // Artık JWT Token kontrolü yapmayan GetAsync'i çağırabiliriz.
-        // BaseApiService'teki GetAsync'ten 'requireAuth' kontrolünü kaldırabilir veya false geçebilirsiniz.
-        return await GetAsync<ShipDetailResponse>(endpoint);
-    }
-
-    public async Task<ShipDetailDto> CreateShipAsync(CreateShipRequestDto createShipDto)
-    {
-        var endpoint = $"/api/players/ships/create";
-
-        return await PostAsync<CreateShipRequestDto, ShipDetailDto>(endpoint, createShipDto);
+            SelectedShipDetails = response.Data;
+            OnShipDetailReceived?.Invoke(response.Data);
+        }
+        else
+        {
+            string msg = response?.Message ?? "Gemi detayı bulunamadı.";
+            OnShipDetailFailed?.Invoke(msg);
+        }
     }
 
     /// <summary>
-    /// Sets the currently active cannonball for a ship by making a PUT request to the API.
+    /// Yeni bir gemi oluşturur.
+    /// Endpoint: POST api/players/ships/create
     /// </summary>
-    /// <param name="shipId">The unique ID of the ship.</param>
-    /// <param name="cannonballCode">The unique 'Code' of the cannonball to activate.</param>
-    /// <returns>True if the operation was successful, false otherwise.</returns>
-    public async Task<bool> SetActiveCannonball(Guid shipId, int cannonballCode)
+    public async Task CreateShipAsync(CreateShipRequestDto createShipDto)
     {
-        // 1. Construct the correct endpoint URL.
-        string endpoint = $"/api/Cannonball/ship/{shipId}/active";
+        string endpoint = "api/players/ships/create";
+        var response = await PostAsync<CreateShipRequestDto, ApiResponse<ShipDetailDto>>(endpoint, createShipDto);
 
-        // 2. Create the request payload object.
-        var requestPayload = new SetActiveCannonballRequestDto
+        if (response != null && response.Success)
         {
-            CannonballCode = cannonballCode
+            // Başarılı olursa listeyi yenilemek iyi bir fikirdir
+            CachedShips?.Add(new PlayerShipListDto 
+            { 
+                ShipId = response.Data.ShipId, 
+                ShipName = response.Data.ShipName,
+                Level = response.Data.Level,
+                // Diğer özet alanlar...
+            });
+            
+            OnShipCreated?.Invoke(response.Data);
+        }
+        else
+        {
+            OnShipCreateFailed?.Invoke(response?.Message ?? "Gemi oluşturulamadı.");
+        }
+    }
+
+    /// <summary>
+    /// Gemiyi respawn eder (Canını doldurur, pozisyonunu sıfırlar).
+    /// Endpoint: POST api/players/ships/{id}/respawn
+    /// </summary>
+    public async Task<bool> RespawnShipAsync(Guid shipId)
+    {
+        string endpoint = $"api/players/ships/{shipId}/respawn";
+        
+        // POST isteği boş body ile gidiyor
+        var response = await PostAsync<object, ApiResponse<ShipRespawnResultDto>>(endpoint, new { });
+
+        if (response != null && response.Success)
+        {
+            Debug.Log($"[PlayerApiService] Gemi respawn edildi. Yeni HP: {response.Data.CurrentHull}");
+            return true;
+        }
+        
+        Debug.LogError($"[PlayerApiService] Respawn hatası: {response?.Message}");
+        return false;
+    }
+
+    #endregion
+
+    #region Inventory & Testing (InventoryService)
+
+    /// <summary>
+    /// TEST: Gemiye eşya ekler.
+    /// Endpoint: POST api/players/inventory/take-item
+    /// </summary>
+    public async Task<bool> TestAddItemToShip(Guid shipId, int itemCode, int quantity)
+    {
+        string endpoint = "api/players/inventory/take-item";
+        
+        var payload = new AddItemProcess
+        {
+            ShipId = shipId,
+            ItemCode = itemCode,
+            Quantity = quantity
         };
 
-        // 3. Call the generic PutAsync method from BaseApiService.
-        // It sends the payload and expects a generic ApiResponseDto back.
-        var response = await PutAsync<SetActiveCannonballRequestDto, ApiResponse>(endpoint, requestPayload);
+        // API basitçe bool dönen bir yapıya sahipti (ApiResponse<bool>)
+        var response = await PostAsync<AddItemProcess, ApiResponse<bool>>(endpoint, payload);
 
-        // 4. Return true if the response is not null and the API reported success.
-        return response is { Success: true };
+        return response != null && response.Success;
     }
+    
+    // NOT: Equip, UseItem gibi metotlar WebAPI'de InventoryService tam yazılınca buraya eklenecek.
 
-    #region Connection methods
+    #endregion
 
-    // first connection and include stat
-    public async Task<ConnectionResponseDto> ConnectToServer(ConnectionRequestDto request)
+    #region Connection (Gelecek Planı)
+
+    // Eski 'ConnectRequestToServerForData' yerine, Dedicated Server IP'sini isteyen bir metot olacak.
+    // Şimdilik burası boş, çünkü ConnectionController henüz yazılmadı.
+    /*
+    public async Task<ServerConnectionInfoDto> RequestGameServerAccess(Guid shipId)
     {
-        var endpoint = $"/api/connection/request";
-        return await PostAsync<ConnectionRequestDto, ConnectionResponseDto>(endpoint, request, false);
+        // Gelecekte: /api/matchmaking/request veya /api/connection/token
+        return null; 
     }
-
-    public async Task<object> DisconnectFromServer(DisconnectRequestDto request)
-    {
-        var endpoint = $"/api/connection/disconnect";
-        return await PostAsync<DisconnectRequestDto, object>(endpoint, request, false);
-    }
-
-    public async Task<List<ServerStatusDto>> GetServers()
-    {
-        var endpoint = $"/api/connection/servers";
-        return await GetAsync<List<ServerStatusDto>>(endpoint, false);
-    }
+    */
 
     #endregion
 }

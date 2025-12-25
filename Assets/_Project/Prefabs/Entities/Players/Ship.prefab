@@ -328,10 +328,10 @@ GameObject:
   - component: {fileID: 8265912723117247390}
   - component: {fileID: 4229125779455905163}
   - component: {fileID: 799651006159819100}
+  - component: {fileID: 4986468530700343309}
   - component: {fileID: 1925209058984519814}
   - component: {fileID: 1370421426800836171}
   - component: {fileID: 5091065585073762215}
-  - component: {fileID: 4986468530700343309}
   - component: {fileID: 8927790946361895734}
   - component: {fileID: 689145636173089371}
   - component: {fileID: 702379202209478150}
@@ -409,6 +409,18 @@ NavMeshAgent:
   m_BaseOffset: 0.0077439398
   m_WalkableMask: 4294967295
   m_ObstacleAvoidanceType: 2
+--- !u!114 &4986468530700343309
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6336937085482125642}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a4d7dedd528b5d940bc9f0894d4536af, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!114 &1925209058984519814
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -497,18 +509,6 @@ MonoBehaviour:
   SwitchTransformSpaceWhenParented: 0
   Interpolate: 1
   SlerpPosition: 0
---- !u!114 &4986468530700343309
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6336937085482125642}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a4d7dedd528b5d940bc9f0894d4536af, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!114 &8927790946361895734
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -697,11 +697,13 @@ MonoBehaviour:
     m_InternalValue: 0
   AngularSpeed:
     m_InternalValue: 0
-  AttackRate:
-    m_InternalValue: 2
+  HitRate:
+    m_InternalValue: 0
   Range:
     m_InternalValue: 20
   Armor:
+    m_InternalValue: 0
+  Cooldown:
     m_InternalValue: 0
 --- !u!114 &-4151866929248345254
 MonoBehaviour:

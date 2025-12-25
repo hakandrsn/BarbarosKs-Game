@@ -30,15 +30,9 @@ public class ServiceLocator
     public void Register<T>(T service) where T : IGameService
     {
         var type = typeof(T);
-        if (_services.ContainsKey(type))
-        {
-            Debug.LogWarning($"Servis tipi {type.Name} zaten kayıtlı. Üzerine yazılıyor.");
-            _services[type] = service;
-        }
-        else
-        {
-            _services.Add(type, service);
-        }
+        if (_services.TryAdd(type, service)) return;
+        Debug.LogWarning($"Servis tipi {type.Name} zaten kayıtlı. Üzerine yazılıyor.");
+        _services[type] = service;
     }
 
     /// <summary>
